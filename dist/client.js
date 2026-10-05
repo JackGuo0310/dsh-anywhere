@@ -41,6 +41,7 @@
       "newPassword": "New password (minimum 12 characters)",
       "confirmPassword": "Confirm new password",
       "changePassword": "Change password",
+      "passwordTooShort": "The new password must be at least 12 characters.",
       "passwordMismatch": "New passwords do not match.",
       "passwordChanged": "Password changed. All remote sessions were revoked.",
       "configurationTitle": "Advanced configuration",
@@ -84,6 +85,7 @@
       "newPassword": "\u65B0\u5BC6\u7801\uFF08\u81F3\u5C11 12 \u4E2A\u5B57\u7B26\uFF09",
       "confirmPassword": "\u786E\u8BA4\u65B0\u5BC6\u7801",
       "changePassword": "\u4FEE\u6539\u5BC6\u7801",
+      "passwordTooShort": "\u65B0\u5BC6\u7801\u81F3\u5C11\u9700\u8981 12 \u4E2A\u5B57\u7B26\u3002",
       "passwordMismatch": "\u4E24\u6B21\u8F93\u5165\u7684\u65B0\u5BC6\u7801\u4E0D\u4E00\u81F4\u3002",
       "passwordChanged": "\u5BC6\u7801\u5DF2\u4FEE\u6539\uFF0C\u6240\u6709\u8FDC\u7A0B\u4F1A\u8BDD\u5DF2\u64A4\u9500\u3002",
       "configurationTitle": "\u9AD8\u7EA7\u914D\u7F6E",
@@ -148,6 +150,7 @@
         } else if (method === "startTunnel") setFeedback({ tone: "success", message: t("tunnelStarted") });
         else if (method === "restartTunnel") setFeedback({ tone: "success", message: t("tunnelRestarted") });
         else if (method === "revokeAllSessions") setFeedback({ tone: "success", message: t("sessionsRevoked") });
+        if (["startTunnel", "restartTunnel", "revokeAllSessions"].includes(method)) setGatewayStatus(objectOf(await call("status")));
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         const missingTunnel = (method === "startTunnel" || method === "restartTunnel") && message === "No tunnel provider is configured.";
@@ -160,6 +163,10 @@
       void invoke("status");
     }, [invoke]);
     const changePassword = React.useCallback(async () => {
+      if (newPassword.length < 12) {
+        setFeedback({ tone: "error", message: t("passwordTooShort") });
+        return;
+      }
       if (newPassword !== confirmPassword) {
         setFeedback({ tone: "error", message: t("passwordMismatch") });
         return;

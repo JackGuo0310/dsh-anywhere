@@ -89,6 +89,7 @@ function SettingsSection(props: { t: Translator, call: HostCall, React: ReactLik
       } else if (method === 'startTunnel') setFeedback({ tone: 'success', message: t('tunnelStarted') })
       else if (method === 'restartTunnel') setFeedback({ tone: 'success', message: t('tunnelRestarted') })
       else if (method === 'revokeAllSessions') setFeedback({ tone: 'success', message: t('sessionsRevoked') })
+      if (['startTunnel', 'restartTunnel', 'revokeAllSessions'].includes(method)) setGatewayStatus(objectOf(await call('status')))
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       const missingTunnel = (method === 'startTunnel' || method === 'restartTunnel') && message === 'No tunnel provider is configured.'
@@ -101,6 +102,7 @@ function SettingsSection(props: { t: Translator, call: HostCall, React: ReactLik
   React.useEffect(() => { void invoke('status') }, [invoke])
 
   const changePassword = React.useCallback(async () => {
+    if (newPassword.length < 12) { setFeedback({ tone: 'error', message: t('passwordTooShort') }); return }
     if (newPassword !== confirmPassword) { setFeedback({ tone: 'error', message: t('passwordMismatch') }); return }
     setBusy('changePassword')
     setFeedback(undefined)

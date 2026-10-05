@@ -41,6 +41,7 @@
     "newPassword": "New password (minimum 12 characters)",
     "confirmPassword": "Confirm new password",
     "changePassword": "Change password",
+    "passwordTooShort": "The new password must be at least 12 characters.",
     "passwordMismatch": "New passwords do not match.",
     "passwordChanged": "Password changed. All remote sessions were revoked.",
     "configurationTitle": "Advanced configuration",

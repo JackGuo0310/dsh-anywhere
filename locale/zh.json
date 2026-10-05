@@ -41,6 +41,7 @@
     "newPassword": "新密码（至少 12 个字符）",
     "confirmPassword": "确认新密码",
     "changePassword": "修改密码",
+    "passwordTooShort": "新密码至少需要 12 个字符。",
     "passwordMismatch": "两次输入的新密码不一致。",
     "passwordChanged": "密码已修改，所有远程会话已撤销。",
     "configurationTitle": "高级配置",
