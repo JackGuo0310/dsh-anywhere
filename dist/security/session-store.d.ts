@@ -10,6 +10,7 @@ export declare class SessionStore {
     revoke(id: string | undefined): void;
     revokeAll(): void;
     count(): number;
+    clearExpired(now?: number): void;
     private hash;
 }
 //# sourceMappingURL=session-store.d.ts.map

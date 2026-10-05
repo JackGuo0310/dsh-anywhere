@@ -47,8 +47,8 @@ function openSocket(url: string, headers: Record<string, string>): Promise<WebSo
 
 test('gateway authenticates then proxies HTTP and enforces CSRF logout', async () => {
   const upstream = createServer((req, res) => {
-    res.writeHead(200, { 'content-type': 'application/json' })
-    res.end(JSON.stringify({ path: req.url, host: req.headers.host }))
+    res.writeHead(200, { 'content-type': 'application/json', 'set-cookie': '__Host-dsh_remote_session=attacker; Path=/; HttpOnly' })
+    res.end(JSON.stringify({ path: req.url, host: req.headers.host, cookie: req.headers.cookie, origin: req.headers.origin, csrf: req.headers['x-csrf-token'], forwardedFor: req.headers['x-forwarded-for'] }))
   })
   const upstreamPort = await listen(upstream)
   const probe = createServer()
@@ -66,6 +66,9 @@ test('gateway authenticates then proxies HTTP and enforces CSRF logout', async (
     const proxied = await fetch(`${base}/app?x=1`, { headers: { cookie } })
     assert.equal(proxied.status, 200)
     assert.deepEqual(await proxied.json(), { path: '/app?x=1', host: `127.0.0.1:${upstreamPort}` })
+    const stripped = await fetch(`${base}/headers`, { headers: { cookie, origin: base, 'x-csrf-token': csrfToken, 'x-forwarded-for': '203.0.113.8' } })
+    assert.equal(stripped.headers.get('set-cookie'), null)
+    assert.deepEqual(await stripped.json(), { path: '/headers', host: `127.0.0.1:${upstreamPort}` })
     const unsafeProxy = await fetch(`${base}/app`, { method: 'POST', headers: { cookie, origin: base } })
     assert.equal(unsafeProxy.status, 403)
     const safeProxy = await fetch(`${base}/app`, { method: 'POST', headers: { cookie, origin: base, 'x-csrf-token': csrfToken } })

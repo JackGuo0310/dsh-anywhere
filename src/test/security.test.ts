@@ -18,6 +18,7 @@ test('password change verifies the current password and revokes sessions', async
   const auth = new AuthService({ passwordHash: await hashPassword('correct horse battery staple'), sessionTtlMinutes: 60, secureCookie: false, trustedProxies: [] })
   const session = auth.sessions.create(60)
   await assert.rejects(() => auth.changePassword('wrong password', 'another correct horse battery staple'), /invalid/i)
+  await assert.rejects(() => auth.changePassword('correct horse battery staple', 'short'), /12 characters/i)
   const replacement = await auth.changePassword('correct horse battery staple', 'another correct horse battery staple')
   assert.equal(await verifyPassword('another correct horse battery staple', replacement), true)
   assert.equal(auth.sessions.get(session.id), undefined)
@@ -41,6 +42,7 @@ test('rate limiter blocks after configured budget', () => {
 test('redaction and authority parsing avoid accidental disclosures', () => {
   assert.deepEqual(redactValue({ password: 'secret', label: 'ok' }), { password: '[REDACTED]', label: 'ok' })
   assert.equal(parseCookies('a=1; b=hello%20world').b, 'hello world')
+  assert.deepEqual(parseCookies('bad=%; good=value'), { good: 'value' })
   assert.equal(canonicalAuthority('EXAMPLE.test:443'), 'example.test:443')
   assert.equal(canonicalAuthority('user@example.test'), undefined)
 })

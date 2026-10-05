@@ -22,12 +22,16 @@ export class AuthService {
     async changePassword(currentPassword, nextPassword) {
         if (!this.passwordHash || !(await verifyPassword(currentPassword, this.passwordHash)))
             throw new Error('Current administrator password is invalid.');
+        if (nextPassword.length < 12)
+            throw new Error('New administrator password must be at least 12 characters.');
         const nextHash = await hashPassword(nextPassword);
         this.passwordHash = nextHash;
         this.revokeAll();
         return nextHash;
     }
     async login(username, password, req) {
+        this.ipLimiter.clearExpired();
+        this.accountLimiter.clearExpired();
         const ip = remoteClientIp(req, this.options.trustedProxies);
         const ipState = this.ipLimiter.check(`ip:${ip}`);
         const accountState = this.accountLimiter.check(`account:${username.toLowerCase()}`);

@@ -50,6 +50,22 @@ export function assertSafeConfig(value) {
     if (external && (!config.adminConfigured || !config.adminPasswordSecretRef)) {
         throw new Error('External listener requires a configured administrator account and password credential reference.');
     }
+    if (config.frp && config.customCommandEnabled) {
+        throw new Error('Configure exactly one tunnel provider: FRP or custom command.');
+    }
+    if (config.frp) {
+        const frp = config.frp;
+        if (!frp.executablePath || !frp.serverAddress || !frp.serverPort) {
+            throw new Error('FRP requires executablePath, serverAddress, and serverPort.');
+        }
+        if (frp.authMethod === 'token' && !frp.tokenSecretRef) {
+            throw new Error('FRP token authentication requires tokenSecretRef.');
+        }
+        if ((frp.transport === 'http' || frp.transport === 'https') && !frp.customDomain) {
+            throw new Error('HTTP/HTTPS FRP transport requires customDomain.');
+        }
+        validateFrpcPath(frp.executablePath);
+    }
     if (config.mode === 'tunnel') {
         if (!config.publicBaseUrl?.startsWith('https://')) {
             throw new Error('Tunnel mode requires an HTTPS publicBaseUrl.');

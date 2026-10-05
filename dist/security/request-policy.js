@@ -1,8 +1,18 @@
 import { isIP } from 'node:net';
 export function parseCookies(header) {
-    if (!header)
+    if (!header || header.length > 16_384)
         return {};
-    return Object.fromEntries(header.split(';').map((part) => part.trim().split(/=(.*)/s, 2)).filter(([key]) => key).map(([key, value]) => [key, decodeURIComponent(value ?? '')]));
+    const cookies = {};
+    for (const part of header.split(';').slice(0, 128)) {
+        const [key, value] = part.trim().split(/=(.*)/s, 2);
+        if (!key)
+            continue;
+        try {
+            cookies[key] = decodeURIComponent(value ?? '');
+        }
+        catch { /* Ignore malformed cookie pairs. */ }
+    }
+    return cookies;
 }
 export function canonicalAuthority(value) {
     try {
