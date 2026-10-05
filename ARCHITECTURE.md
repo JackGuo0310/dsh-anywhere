@@ -9,14 +9,14 @@ DSH Web 的 `dsh-host-webserver` 是进程内 HTTP/升级路由注册器；它�
 ## 组件
 
 ```text
-远程浏览器
-  └─ TLS（公网模式由受信任边界终止）
-      └─ RemoteGateway : 独立监听端口
-          ├─ 登录、会话、CSRF、限速、Host/Origin 校验
-          ├─ HTTP/SSE 逐流代理
-          ├─ WebSocket 认证与字节转发
-          └─ TunnelProvider（FRP / 将来的 Cloudflare / 自定义命令）
-                └─ 127.0.0.1:<DSH Web 端口>
+直连：LAN IP + port / Tailscale IP + port
+公网：HTTPS 自定义域名 + FRP
+  └─ 登录网关 RemoteGateway : 独立监听端口
+      ├─ 登录、会话、CSRF、限速、Host/Origin 校验
+      ├─ HTTP / SSE / API：认证后逐流代理
+      ├─ WebSocket：认证后 upgrade 与双向转发
+      └─ TunnelProvider（FRP / 将来的 Cloudflare / 自定义命令）
+            └─ 127.0.0.1:<DSH Web 端口>
 ```
 
 配置携带 secret **引用**而非值；FRP token 等通过 DSH credentials 服务按操作读取。密码哈希、会话记录与加密状态是本机受限权限运行时数据，不进入普通设置、日志或诊断输出。
@@ -26,8 +26,8 @@ DSH Web 的 `dsh-host-webserver` 是进程内 HTTP/升级路由注册器；它�
 1. 默认关闭；默认绑定 `127.0.0.1`。
 2. 非 loopback 监听在管理员账号未配置时拒绝启动。
 3. 公网隧道模式要求 HTTPS 声明和可信代理显式 allowlist；不信任任意 `X-Forwarded-*`。
-4. 认证在代理前发生，HTTP、SSE、WebSocket 共用同一会话判定。
-5. Cookie 使用 `HttpOnly`、`SameSite=Strict`，公网 HTTPS 使用 `Secure`；CSRF 校验用于变更方法。
+4. 登录网关位于直连能力（IP + port / Tailscale）与公网隧道能力（域名 + FRP）之前；认证在代理前发生，HTTP、SSE、API 与 WebSocket 共用同一会话判定。
+5. Cookie 使用 `HttpOnly`、`SameSite=Strict`，公网 HTTPS 使用 `Secure`；CSRF 校验用于 HTTP 变更方法，WebSocket upgrade 另行执行 Host/Origin 与会话校验。
 6. 密码使用 Argon2id（运行时可用）或 Node `scrypt` 的受控安全降级；不明文持久化。
 7. 限制请求体、登录次数、会话存活期；支持撤销全部会话。
 8. 日志脱敏 Authorization、Cookie、token、password、secret 等字段。
