@@ -14,6 +14,17 @@ test('FRP config emits an explicit loopback target', () => {
   assert.match(toml, /customDomains = \["dsh\.example\.test"\]/)
 })
 
+test('STCP uses a separate visitor secret', () => {
+  const toml = generateFrpcToml({
+    target: { host: '127.0.0.1', port: 4173, protocol: 'http' },
+    token: 'server-token',
+    stcpSecret: 'visitor-secret',
+    frp: { executablePath: '/usr/local/bin/frpc', serverAddress: 'frp.example.test', serverPort: 7000, authMethod: 'token', tokenSecretRef: 'FRP_TOKEN', stcpSecretRef: 'STCP_SECRET', transport: 'stcp', tlsEnabled: true, startWithDsh: false }
+  })
+  assert.match(toml, /token = "server-token"/)
+  assert.match(toml, /secretKey = "visitor-secret"/)
+})
+
 test('tailscale parser reports addresses and magic DNS', () => {
   const status = parseTailscaleStatus(JSON.stringify({ BackendState: 'Running', Self: { TailscaleIPs: ['100.64.0.2', 'fd7a:115c:a1e0::1'], DNSName: 'machine.tailnet.ts.net.' } }))
   assert.equal(status.connected, true)

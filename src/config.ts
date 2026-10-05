@@ -24,6 +24,7 @@ export const frpConfigSchema = z.object({
   serverPort: z.number().int().min(1).max(65535).optional(),
   authMethod: z.enum(['token', 'oidc', 'none']).default('token'),
   tokenSecretRef: z.string().regex(/^[A-Z_][A-Z0-9_]*$/).optional(),
+  stcpSecretRef: z.string().regex(/^[A-Z_][A-Z0-9_]*$/).optional(),
   transport: z.enum(['http', 'https', 'stcp']).default('https'),
   customDomain: z.string().max(253).optional(),
   tlsEnabled: z.boolean().default(true),
@@ -81,6 +82,9 @@ export function assertSafeConfig(value: unknown): RemoteAccessConfig {
     }
     if ((frp.transport === 'http' || frp.transport === 'https') && !frp.customDomain) {
       throw new Error('HTTP/HTTPS FRP transport requires customDomain.')
+    }
+    if (frp.transport === 'stcp' && !frp.stcpSecretRef) {
+      throw new Error('STCP transport requires a separate stcpSecretRef.')
     }
     validateFrpcPath(frp.executablePath)
   }

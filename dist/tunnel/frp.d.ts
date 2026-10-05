@@ -3,6 +3,7 @@ import type { TunnelProvider, TunnelStatus } from './types.js';
 export interface FrpRuntimeConfig extends Required<Pick<RemoteAccessConfig, 'target'>> {
     frp: NonNullable<RemoteAccessConfig['frp']>;
     token?: string;
+    stcpSecret?: string;
 }
 export declare function generateFrpcToml(config: FrpRuntimeConfig): string;
 export declare class FrpTunnelProvider implements TunnelProvider {

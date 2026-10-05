@@ -10,6 +10,8 @@ export function generateFrpcToml(config) {
         throw new Error('FRP token credential is missing or empty.');
     if ((frp.transport === 'http' || frp.transport === 'https') && !frp.customDomain)
         throw new Error('HTTP/HTTPS FRP transport requires a custom domain.');
+    if (frp.transport === 'stcp' && !config.stcpSecret)
+        throw new Error('STCP secret credential is missing or empty.');
     const auth = frp.authMethod === 'token' ? `\n[auth]\nmethod = "token"\ntoken = ${tomlString(config.token)}\n` : `\n[auth]\nmethod = ${tomlString(frp.authMethod)}\n`;
     const lines = [
         `serverAddr = ${tomlString(frp.serverAddress)}`,
@@ -23,7 +25,7 @@ export function generateFrpcToml(config) {
     if (frp.transport === 'http' || frp.transport === 'https')
         lines.push(`customDomains = [${tomlString(frp.customDomain)}]`);
     if (frp.transport === 'stcp')
-        lines.push(`secretKey = ${tomlString(config.token ?? '')}`);
+        lines.push(`secretKey = ${tomlString(config.stcpSecret)}`);
     return `${lines.filter(Boolean).join('\n')}\n`;
 }
 function tomlString(value) { return JSON.stringify(value); }

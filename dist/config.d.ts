@@ -8,6 +8,7 @@ export declare const frpConfigSchema: z.ZodObject<{
     serverPort: z.ZodOptional<z.ZodNumber>;
     authMethod: z.ZodDefault<z.ZodEnum<["token", "oidc", "none"]>>;
     tokenSecretRef: z.ZodOptional<z.ZodString>;
+    stcpSecretRef: z.ZodOptional<z.ZodString>;
     transport: z.ZodDefault<z.ZodEnum<["http", "https", "stcp"]>>;
     customDomain: z.ZodOptional<z.ZodString>;
     tlsEnabled: z.ZodDefault<z.ZodBoolean>;
@@ -21,6 +22,7 @@ export declare const frpConfigSchema: z.ZodObject<{
     serverAddress?: string | undefined;
     serverPort?: number | undefined;
     tokenSecretRef?: string | undefined;
+    stcpSecretRef?: string | undefined;
     customDomain?: string | undefined;
 }, {
     executablePath?: string | undefined;
@@ -28,6 +30,7 @@ export declare const frpConfigSchema: z.ZodObject<{
     serverPort?: number | undefined;
     authMethod?: "token" | "oidc" | "none" | undefined;
     tokenSecretRef?: string | undefined;
+    stcpSecretRef?: string | undefined;
     transport?: "http" | "https" | "stcp" | undefined;
     customDomain?: string | undefined;
     tlsEnabled?: boolean | undefined;
@@ -64,6 +67,7 @@ export declare const configSchema: z.ZodObject<{
         serverPort: z.ZodOptional<z.ZodNumber>;
         authMethod: z.ZodDefault<z.ZodEnum<["token", "oidc", "none"]>>;
         tokenSecretRef: z.ZodOptional<z.ZodString>;
+        stcpSecretRef: z.ZodOptional<z.ZodString>;
         transport: z.ZodDefault<z.ZodEnum<["http", "https", "stcp"]>>;
         customDomain: z.ZodOptional<z.ZodString>;
         tlsEnabled: z.ZodDefault<z.ZodBoolean>;
@@ -77,6 +81,7 @@ export declare const configSchema: z.ZodObject<{
         serverAddress?: string | undefined;
         serverPort?: number | undefined;
         tokenSecretRef?: string | undefined;
+        stcpSecretRef?: string | undefined;
         customDomain?: string | undefined;
     }, {
         executablePath?: string | undefined;
@@ -84,6 +89,7 @@ export declare const configSchema: z.ZodObject<{
         serverPort?: number | undefined;
         authMethod?: "token" | "oidc" | "none" | undefined;
         tokenSecretRef?: string | undefined;
+        stcpSecretRef?: string | undefined;
         transport?: "http" | "https" | "stcp" | undefined;
         customDomain?: string | undefined;
         tlsEnabled?: boolean | undefined;
@@ -125,6 +131,7 @@ export declare const configSchema: z.ZodObject<{
         serverAddress?: string | undefined;
         serverPort?: number | undefined;
         tokenSecretRef?: string | undefined;
+        stcpSecretRef?: string | undefined;
         customDomain?: string | undefined;
     } | undefined;
     publicBaseUrl?: string | undefined;
@@ -142,6 +149,7 @@ export declare const configSchema: z.ZodObject<{
         serverPort?: number | undefined;
         authMethod?: "token" | "oidc" | "none" | undefined;
         tokenSecretRef?: string | undefined;
+        stcpSecretRef?: string | undefined;
         transport?: "http" | "https" | "stcp" | undefined;
         customDomain?: string | undefined;
         tlsEnabled?: boolean | undefined;
