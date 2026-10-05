@@ -24,6 +24,8 @@
     "lanNotFound": "No usable LAN IPv4 address was detected.",
     "tailscaleFound": "Tailscale detected:",
     "tailscaleNotFound": "No usable Tailscale address was detected.",
+    "tailscaleNotInstalled": "Tailscale is not installed, or its command is not on PATH.",
+    "tailscaleDisconnected": "Tailscale is installed but not connected.",
     "tunnelTitle": "Connections and sessions",
     "tunnelBody": "Tunnel controls remain disabled until a provider is configured. Revoking sessions signs out every remote device.",
     "startTunnel": "Start tunnel",

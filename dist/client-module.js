@@ -49,9 +49,12 @@ function SettingsSection(props) {
                 setFeedback({ tone: 'success', message: addresses ? `${t('lanFound')} ${addresses}:${String(value.gatewayPort ?? '')}` : t('lanNotFound') });
             }
             else if (method === 'detectTailscale') {
-                const addresses = Array.isArray(value.addresses) ? value.addresses.join('、') : Array.isArray(value.ipv4) ? value.ipv4.join('、') : '';
+                const ipv4 = Array.isArray(value.ipv4) ? value.ipv4.join('、') : '';
+                const ipv6 = Array.isArray(value.ipv6) ? value.ipv6.join('、') : '';
                 const dns = textOf(value.magicDnsName, '');
-                setFeedback({ tone: 'success', message: addresses || dns ? `${t('tailscaleFound')} ${[dns, addresses].filter(Boolean).join(' · ')}` : t('tailscaleNotFound') });
+                const details = [dns, ipv4, ipv6].filter(Boolean).join(' · ');
+                const message = value.installed === false ? t('tailscaleNotInstalled') : value.connected === false ? t('tailscaleDisconnected') : details ? `${t('tailscaleFound')} ${details}` : t('tailscaleNotFound');
+                setFeedback({ tone: value.connected ? 'success' : 'error', message });
             }
             else if (method === 'startTunnel')
                 setFeedback({ tone: 'success', message: t('tunnelStarted') });

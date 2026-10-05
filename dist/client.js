@@ -24,6 +24,8 @@
       "lanNotFound": "No usable LAN IPv4 address was detected.",
       "tailscaleFound": "Tailscale detected:",
       "tailscaleNotFound": "No usable Tailscale address was detected.",
+      "tailscaleNotInstalled": "Tailscale is not installed, or its command is not on PATH.",
+      "tailscaleDisconnected": "Tailscale is installed but not connected.",
       "tunnelTitle": "Connections and sessions",
       "tunnelBody": "Tunnel controls remain disabled until a provider is configured. Revoking sessions signs out every remote device.",
       "startTunnel": "Start tunnel",
@@ -64,6 +66,8 @@
       "lanNotFound": "\u672A\u68C0\u6D4B\u5230\u53EF\u7528\u7684\u5C40\u57DF\u7F51 IPv4 \u5730\u5740\u3002",
       "tailscaleFound": "\u5DF2\u68C0\u6D4B\u5230 Tailscale\uFF1A",
       "tailscaleNotFound": "\u672A\u68C0\u6D4B\u5230\u53EF\u7528\u7684 Tailscale \u5730\u5740\u3002",
+      "tailscaleNotInstalled": "\u672A\u5B89\u88C5 Tailscale\uFF0C\u6216 tailscale \u547D\u4EE4\u4E0D\u5728 PATH \u4E2D\u3002",
+      "tailscaleDisconnected": "Tailscale \u5DF2\u5B89\u88C5\uFF0C\u4F46\u5F53\u524D\u672A\u8FDE\u63A5\u3002",
       "tunnelTitle": "\u8FDE\u63A5\u4E0E\u4F1A\u8BDD",
       "tunnelBody": "\u96A7\u9053\u672A\u914D\u7F6E\u65F6\uFF0C\u76F8\u5173\u64CD\u4F5C\u4F1A\u4FDD\u6301\u7981\u7528\u3002\u64A4\u9500\u4F1A\u8BDD\u4F1A\u8BA9\u6240\u6709\u8FDC\u7A0B\u8BBE\u5907\u91CD\u65B0\u767B\u5F55\u3002",
       "startTunnel": "\u542F\u52A8\u96A7\u9053",
@@ -133,9 +137,12 @@
           const addresses = Array.isArray(value.lanIpv4) ? value.lanIpv4.join("\u3001") : "";
           setFeedback({ tone: "success", message: addresses ? `${t("lanFound")} ${addresses}:${String(value.gatewayPort ?? "")}` : t("lanNotFound") });
         } else if (method === "detectTailscale") {
-          const addresses = Array.isArray(value.addresses) ? value.addresses.join("\u3001") : Array.isArray(value.ipv4) ? value.ipv4.join("\u3001") : "";
+          const ipv4 = Array.isArray(value.ipv4) ? value.ipv4.join("\u3001") : "";
+          const ipv6 = Array.isArray(value.ipv6) ? value.ipv6.join("\u3001") : "";
           const dns = textOf(value.magicDnsName, "");
-          setFeedback({ tone: "success", message: addresses || dns ? `${t("tailscaleFound")} ${[dns, addresses].filter(Boolean).join(" \xB7 ")}` : t("tailscaleNotFound") });
+          const details = [dns, ipv4, ipv6].filter(Boolean).join(" \xB7 ");
+          const message = value.installed === false ? t("tailscaleNotInstalled") : value.connected === false ? t("tailscaleDisconnected") : details ? `${t("tailscaleFound")} ${details}` : t("tailscaleNotFound");
+          setFeedback({ tone: value.connected ? "success" : "error", message });
         } else if (method === "startTunnel") setFeedback({ tone: "success", message: t("tunnelStarted") });
         else if (method === "restartTunnel") setFeedback({ tone: "success", message: t("tunnelRestarted") });
         else if (method === "revokeAllSessions") setFeedback({ tone: "success", message: t("sessionsRevoked") });
