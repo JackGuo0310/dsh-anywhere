@@ -14,6 +14,5 @@ export async function apply(ctx: Context, rawConfig: RemoteAccessConfig): Promis
 
   const service = new RemoteAccessService(ctx, config)
   await service.start()
-  ctx.provide('dshRemoteAccess', service)
   ctx.effect(() => () => service.stop())
 }

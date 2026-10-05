@@ -3,6 +3,7 @@ import type { RemoteAccessConfig } from './config.js'
 import { RemoteGateway } from './gateway/remote-gateway.js'
 import { detectTailscale } from './network/tailscale.js'
 import type { Context } from '@deepseek-ai/cordis'
+import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 
 type Credentials = {
   resolve(ref: string): Promise<{ value: string } | undefined>
@@ -32,10 +33,12 @@ function lanAddresses(): string[] {
 }
 
 /** Host RPC surface. It never returns passwords, password hashes, tokens, or credential references. */
-export class RemoteAccessService {
+export class RemoteAccessService extends TypertRemoteService {
   private gateway: RemoteGateway | undefined
 
-  constructor(private readonly ctx: Context, private readonly config: RemoteAccessConfig) {}
+  constructor(ctx: Context, private readonly config: RemoteAccessConfig) {
+    super(ctx, 'dshRemoteAccess', { namespace: 'dshRemoteAccess' })
+  }
 
   async start(): Promise<void> {
     if (!this.config.enabled) return
@@ -50,6 +53,7 @@ export class RemoteAccessService {
     await gateway?.stop()
   }
 
+  @Remote('status')
   async status(): Promise<unknown> {
     return {
       configured: redactConfig(this.config),
@@ -58,14 +62,17 @@ export class RemoteAccessService {
     }
   }
 
+  @Remote('discoverNetwork')
   async discoverNetwork(): Promise<unknown> {
     return { lanIpv4: lanAddresses(), gatewayPort: this.config.listenPort }
   }
 
+  @Remote('detectTailscale')
   async detectTailscale(): Promise<unknown> {
     return detectTailscale()
   }
 
+  @Remote('revokeAllSessions')
   async revokeAllSessions(): Promise<unknown> {
     if (!this.gateway) throw new Error('Gateway is not running.')
     this.gateway.revokeAllSessions()

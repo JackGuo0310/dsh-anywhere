@@ -49,6 +49,7 @@
     "@deepseek-ai/cordis": "~4.0.5-alpha.1",
     "@deepseek-ai/dsh-credentials": "0.2.1-alpha.1",
     "@deepseek-ai/dsh-host-webserver": "0.2.1-alpha.1",
+    "@deepseek-ai/dsh-typert-protocol": "0.2.1-alpha.1",
     "@deepseek-ai/schemastery": "~3.18.5-alpha.1",
     "ws": "^8.18.0",
     "zod": "^3.24.1"
