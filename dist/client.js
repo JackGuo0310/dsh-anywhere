@@ -1,7 +1,8 @@
 "use strict";
 (() => {
-  // src/client.ts
+  // src/client-module.ts
   var sectionId = "dsh-remote-access";
+  var remoteNamespace = "dshRemoteAccess";
   var css = `
 .dsh-remote-access{max-width:840px;padding:24px;color:var(--dsh-color-text,#e9f0ec)}
 .dsh-remote-access h1{margin:0 0 6px;font-size:28px}.dsh-remote-access h2{margin:0;font-size:18px}
@@ -37,7 +38,7 @@
       setBusy(true);
       setStatus("");
       try {
-        await call("changePassword", { currentPassword, newPassword });
+        await call("changePassword", { request: { currentPassword, newPassword } });
         setCurrentPassword("");
         setNewPassword("");
         setConfirmPassword("");
@@ -102,19 +103,31 @@
       )
     );
   }
+  async function callRemoteHost(ctx, method, args = {}) {
+    const result = await ctx.connection.rpc.call("/api", `${remoteNamespace}/${method}`, { args });
+    if (result.ok) return result.value;
+    throw new Error(result.error?.message ?? `Remote call ${method} failed.`);
+  }
+  function insertStyles() {
+    if (typeof document === "undefined" || document.head === null) return;
+    const style = document.createElement("style");
+    style.dataset.dshRemoteAccessStyles = "";
+    style.textContent = css;
+    document.head.append(style);
+  }
   function createClientModule(React) {
     return {
-      inject: ["slots", "locale"],
+      inject: ["slots", "locale", "connection"],
       apply(ctx) {
-        const disposeStyles = ctx.styles?.insert(css);
-        if (disposeStyles && ctx.effect) ctx.effect(() => disposeStyles);
+        insertStyles();
         const t = ctx.locale.bind("dsh-remote-access");
+        const call = (method, args) => callRemoteHost(ctx, method, args ?? {});
         ctx.slots.inject("settings.section", () => ctx.slots.register({
           name: "settings.section",
           id: sectionId,
           order: 80,
           label: () => t("title"),
-          inject: () => ({ t, call: (method, args) => ctx.host.call(`dshRemoteAccess.${method}`, args), React })
+          inject: () => ({ t, call, React })
         }, SettingsSection));
       }
     };

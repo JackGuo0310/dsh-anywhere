@@ -1,4 +1,4 @@
-import { createClientModule } from './client.js'
+import { createClientModule } from './client-module.js'
 
 declare global {
   interface Window {

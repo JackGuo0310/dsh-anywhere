@@ -1,4 +1,4 @@
-import { createClientModule } from './client.js';
+import { createClientModule } from './client-module.js';
 window.__ModuleLoader__?.load({
     id: '@dsh-community/dsh-remote-access',
     factory(require) {

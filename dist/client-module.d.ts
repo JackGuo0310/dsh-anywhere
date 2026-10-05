@@ -45,4 +45,4 @@ export declare const clientModule: {
     css: string;
 };
 export {};
-//# sourceMappingURL=client.d.ts.map
+//# sourceMappingURL=client-module.d.ts.map

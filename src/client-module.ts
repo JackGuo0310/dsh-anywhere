@@ -4,16 +4,23 @@ const sectionId = 'dsh-remote-access'
 type HostCall = (method: string, args?: unknown) => Promise<unknown>
 type Translator = (key: string) => string
 
+type RemoteCallResult = { ok: boolean, value?: unknown, error?: { message?: string } }
+
 type ClientContext = {
   slots: {
     inject: (slot: string, factory: () => (() => void) | void) => (() => void) | void
     register: (options: { name: string, id: string, order?: number, label?: () => string, inject?: () => unknown }, component: unknown) => (() => void) | void
   }
   locale: { bind: (namespace: string) => Translator }
-  host: { call: HostCall }
-  styles?: { insert: (css: string) => (() => void) | void }
-  effect?: (callback: () => void | (() => void)) => void
+  connection: { rpc: { call: (channel: string, endpoint: string, payload: { args: unknown }, signal?: AbortSignal) => Promise<RemoteCallResult> } }
+  effect?: (callback: () => void | (() => void), label?: string) => void
 }
+
+/**
+ * Host Remote namespace this plugin exposes. The Client reaches it through the
+ * Connection RPC channel, whose endpoint is `<namespace>/<method>`.
+ */
+const remoteNamespace = 'dshRemoteAccess'
 
 type ReactLike = {
   createElement: (type: string | ((props: any) => unknown), props?: Record<string, unknown> | null, ...children: unknown[]) => unknown
@@ -57,7 +64,7 @@ function SettingsSection(props: { t: Translator, call: HostCall, React: ReactLik
     setBusy(true)
     setStatus('')
     try {
-      await call('changePassword', { currentPassword, newPassword })
+      await call('changePassword', { request: { currentPassword, newPassword } })
       setCurrentPassword('')
       setNewPassword('')
       setConfirmPassword('')
@@ -108,19 +115,39 @@ function SettingsSection(props: { t: Translator, call: HostCall, React: ReactLik
   )
 }
 
+/**
+ * Host Remote calls go through the Connection RPC channel: the endpoint is
+ * `<namespace>/<method>`, arguments travel name-keyed, and a rejected call
+ * arrives as `{ ok: false }` rather than as a thrown error.
+ */
+async function callRemoteHost(ctx: ClientContext, method: string, args: Record<string, unknown> = {}): Promise<unknown> {
+  const result = await ctx.connection.rpc.call('/api', `${remoteNamespace}/${method}`, { args })
+  if (result.ok) return result.value
+  throw new Error(result.error?.message ?? `Remote call ${method} failed.`)
+}
+
+/** Claim one <style> tag for this module; the module system owns its disposal. */
+function insertStyles(): void {
+  if (typeof document === 'undefined' || document.head === null) return
+  const style = document.createElement('style')
+  style.dataset.dshRemoteAccessStyles = ''
+  style.textContent = css
+  document.head.append(style)
+}
+
 export function createClientModule(React: ReactLike) {
   return {
-    inject: ['slots', 'locale'],
+    inject: ['slots', 'locale', 'connection'],
     apply(ctx: ClientContext): void {
-      const disposeStyles = ctx.styles?.insert(css)
-      if (disposeStyles && ctx.effect) ctx.effect(() => disposeStyles)
+      insertStyles()
       const t = ctx.locale.bind('dsh-remote-access')
+      const call: HostCall = (method, args) => callRemoteHost(ctx, method, (args as Record<string, unknown> | undefined) ?? {})
       ctx.slots.inject('settings.section', () => ctx.slots.register({
         name: 'settings.section',
         id: sectionId,
         order: 80,
         label: () => t('title'),
-        inject: () => ({ t, call: (method: string, args?: unknown) => ctx.host.call(`dshRemoteAccess.${method}`, args), React }),
+        inject: () => ({ t, call, React }),
       }, SettingsSection))
     },
   }
