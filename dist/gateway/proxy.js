@@ -22,9 +22,11 @@ export function proxyHttp(req, res, target, maxRequestBodyBytes) {
         res.writeHead(upstreamRes.statusCode ?? 502, upstreamRes.statusMessage, responseHeaders);
         upstreamRes.pipe(res);
     });
-    const responseClosed = () => upstream.destroy();
+    const responseClosed = () => {
+        if (!res.writableEnded)
+            upstream.destroy();
+    };
     res.once('close', responseClosed);
-    upstream.on('response', () => res.off('close', responseClosed));
     upstream.setTimeout(30_000, () => upstream.destroy(new Error('DSH upstream timed out.')));
     upstream.on('error', () => {
         if (!res.headersSent)
