@@ -22,6 +22,12 @@ test('FRP configuration fails closed when incomplete or ambiguous', () => {
   assert.throws(() => assertSafeConfig({ frp: { executablePath: 'missing-frpc', serverAddress: 'frp.example', serverPort: 7000, tokenSecretRef: 'FRP_TOKEN', customDomain: 'dsh.example' }, customCommandEnabled: true, customCommand: { command: 'x', args: [] } }), /exactly one/i)
 })
 
+test('trusted proxy entries require valid IP addresses or CIDRs', () => {
+  assert.throws(() => assertSafeConfig({ trustedProxyCidrs: ['proxy.local'] }), /trusted proxy/i)
+  assert.throws(() => assertSafeConfig({ trustedProxyCidrs: ['10.0.0.0/33'] }), /trusted proxy/i)
+  assert.deepEqual(assertSafeConfig({ trustedProxyCidrs: ['10.0.0.0/8', 'fd00::/8'] }).trustedProxyCidrs, ['10.0.0.0/8', 'fd00::/8'])
+})
+
 test('safe loopback configuration has secure defaults', () => {
   const config = assertSafeConfig({})
   assert.equal(config.listenHost, '127.0.0.1')

@@ -10,6 +10,14 @@ const hostSchema = z.string().min(1).refine((value) => {
   return value === 'localhost' || isIP(value) !== 0 || /^[a-zA-Z][a-zA-Z0-9.-]*$/.test(value)
 }, 'Invalid listener host')
 
+const trustedProxySchema = z.string().min(1).refine((value) => {
+  const [address, prefixText, extra] = value.split('/')
+  if (extra !== undefined || isIP(address) === 0) return false
+  if (prefixText === undefined) return true
+  const prefix = Number(prefixText)
+  return Number.isInteger(prefix) && prefix >= 0 && prefix <= (isIP(address) === 4 ? 32 : 128)
+}, 'Invalid trusted proxy IP address or CIDR')
+
 export const frpConfigSchema = z.object({
   executablePath: z.string().min(1).optional(),
   serverAddress: z.string().min(1).optional(),
@@ -34,7 +42,7 @@ export const configSchema = z.object({
     protocol: z.enum(['http', 'https']).default('http')
   }).default({ host: '127.0.0.1', port: 3000, protocol: 'http' }),
   publicBaseUrl: z.string().url().optional(),
-  trustedProxyCidrs: z.array(z.string().min(1)).max(32).default([]),
+  trustedProxyCidrs: z.array(trustedProxySchema).max(32).default([]),
   sessionTtlMinutes: z.number().int().min(5).max(43_200).default(1_440),
   maxRequestBodyBytes: z.number().int().min(1_024).max(1_073_741_824).default(52_428_800),
   adminConfigured: z.boolean().default(false),

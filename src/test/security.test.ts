@@ -48,4 +48,6 @@ test('redaction and authority parsing avoid accidental disclosures', () => {
   assert.equal(isTrustedProxy('192.168.1.42', ['192.168.1.0/24']), true)
   assert.equal(isTrustedProxy('192.168.2.42', ['192.168.1.0/24']), false)
   assert.equal(isTrustedProxy('::ffff:10.2.3.4', ['10.0.0.0/8']), true)
+  assert.equal(isTrustedProxy('fd12:3456:789a::42', ['fd12:3456:789a::/48']), true)
+  assert.equal(isTrustedProxy('fd12:3456:789b::42', ['fd12:3456:789a::/48']), false)
 })

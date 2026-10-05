@@ -53,7 +53,7 @@ export declare const configSchema: z.ZodObject<{
         protocol?: "http" | "https" | undefined;
     }>>;
     publicBaseUrl: z.ZodOptional<z.ZodString>;
-    trustedProxyCidrs: z.ZodDefault<z.ZodArray<z.ZodString, "many">>;
+    trustedProxyCidrs: z.ZodDefault<z.ZodArray<z.ZodEffects<z.ZodString, string, string>, "many">>;
     sessionTtlMinutes: z.ZodDefault<z.ZodNumber>;
     maxRequestBodyBytes: z.ZodDefault<z.ZodNumber>;
     adminConfigured: z.ZodDefault<z.ZodBoolean>;
