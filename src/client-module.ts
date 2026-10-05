@@ -1,3 +1,5 @@
+import { dictionaries, localeNamespace } from './locale.generated.js'
+
 const packageId = '@dsh-community/dsh-remote-access'
 const sectionId = 'dsh-remote-access'
 
@@ -11,7 +13,10 @@ type ClientContext = {
     inject: (slot: string, factory: () => (() => void) | void) => (() => void) | void
     register: (options: { name: string, id: string, order?: number, label?: () => string, inject?: () => unknown }, component: unknown) => (() => void) | void
   }
-  locale: { bind: (namespace: string) => Translator }
+  locale: {
+    register: (namespace: string, locale: string, dict: Record<string, string>) => (() => void) | void
+    bind: (namespace: string) => Translator
+  }
   connection: { rpc: { call: (channel: string, endpoint: string, payload: { args: unknown }, signal?: AbortSignal) => Promise<RemoteCallResult> } }
   effect?: (callback: () => void | (() => void), label?: string) => void
 }
@@ -140,7 +145,8 @@ export function createClientModule(React: ReactLike) {
     inject: ['slots', 'locale', 'connection'],
     apply(ctx: ClientContext): void {
       insertStyles()
-      const t = ctx.locale.bind('dsh-remote-access')
+      for (const [locale, dict] of Object.entries(dictionaries)) ctx.locale.register(localeNamespace, locale, dict)
+      const t = ctx.locale.bind(localeNamespace)
       const call: HostCall = (method, args) => callRemoteHost(ctx, method, (args as Record<string, unknown> | undefined) ?? {})
       ctx.slots.inject('settings.section', () => ctx.slots.register({
         name: 'settings.section',

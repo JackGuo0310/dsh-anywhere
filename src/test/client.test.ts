@@ -27,6 +27,7 @@ function bootClientModule() {
   const ctx = new Context()
   const slots: SlotRow[] = []
   const rpcCalls: { endpoint: string, payload: { args: unknown } }[] = []
+  const localeRegistrations: { namespace: string, locale: string, dict: Record<string, string> }[] = []
   for (const name of ['slots', 'locale', 'connection']) ctx.provide(name, undefined as never)
   ctx.set('connection', {
     rpc: {
@@ -40,8 +41,14 @@ function bootClientModule() {
     inject: (_key: string, callback: () => unknown) => { callback(); return () => undefined },
     register: (options: SlotRow) => { slots.push(options); return () => undefined },
   })
-  ctx.set('locale', { bind: (namespace: string) => (key: string) => `${namespace}.${key}` })
-  return { ctx, slots, rpcCalls }
+  ctx.set('locale', {
+    register: (namespace: string, locale: string, dict: Record<string, string>) => {
+      localeRegistrations.push({ namespace, locale, dict })
+      return () => undefined
+    },
+    bind: (namespace: string) => (key: string) => `${namespace}.${key}`,
+  })
+  return { ctx, slots, rpcCalls, localeRegistrations }
 }
 
 async function boot(ctx: Context) {
@@ -59,6 +66,21 @@ test('client half activates under cordis and registers its settings section', as
 
 test('client half injects every service it reads', () => {
   assert.deepEqual([...clientHalf().inject].sort(), ['connection', 'locale', 'slots'])
+})
+
+test('client half registers its runtime dictionaries for every shipped locale', async () => {
+  const { ctx, localeRegistrations } = bootClientModule()
+  await boot(ctx)
+  assert.deepEqual(localeRegistrations.map((row) => `${row.namespace}/${row.locale}`).sort(), [
+    'dsh-remote-access/en',
+    'dsh-remote-access/zh',
+  ])
+  const english = localeRegistrations.find((row) => row.locale === 'en')!.dict
+  assert.equal(typeof english.title, 'string')
+  assert.equal(english.title.length > 0, true)
+  for (const row of localeRegistrations) {
+    assert.deepEqual(Object.keys(row.dict).sort(), Object.keys(english).sort(), `${row.locale} must mirror en.json keys`)
+  }
 })
 
 test('settings section calls the Host Remote namespace over the connection channel', async () => {

@@ -18,6 +18,7 @@ type ClientContext = {
         }, component: unknown) => (() => void) | void;
     };
     locale: {
+        register: (namespace: string, locale: string, dict: Record<string, string>) => (() => void) | void;
         bind: (namespace: string) => Translator;
     };
     connection: {

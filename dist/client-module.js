@@ -1,3 +1,4 @@
+import { dictionaries, localeNamespace } from './locale.generated.js';
 const packageId = '@dsh-community/dsh-remote-access';
 const sectionId = 'dsh-remote-access';
 /**
@@ -82,7 +83,9 @@ export function createClientModule(React) {
         inject: ['slots', 'locale', 'connection'],
         apply(ctx) {
             insertStyles();
-            const t = ctx.locale.bind('dsh-remote-access');
+            for (const [locale, dict] of Object.entries(dictionaries))
+                ctx.locale.register(localeNamespace, locale, dict);
+            const t = ctx.locale.bind(localeNamespace);
             const call = (method, args) => callRemoteHost(ctx, method, args ?? {});
             ctx.slots.inject('settings.section', () => ctx.slots.register({
                 name: 'settings.section',
