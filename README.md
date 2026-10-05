@@ -24,6 +24,10 @@
 
 详细模型见 [ARCHITECTURE.md](ARCHITECTURE.md)。
 
+## 管理员密码
+
+设置页可修改管理员密码：必须输入当前密码，新的密码至少 12 个字符，且会被保存为 scrypt 哈希到 `adminPasswordSecretRef` 指向的 DSH credential。改密成功后会立即撤销全部远程会话；原始密码不会写入配置、状态或日志。
+
 ## 发布前元数据
 
 发布者必须在发布前将 `package.json` 的 `repository` 字段设置为实际公开仓库 URL；开发版本刻意不包含虚假的仓库地址。

@@ -16,6 +16,14 @@
     "startTunnel": "启动隧道",
     "restartTunnel": "重启隧道",
     "revokeSessions": "撤销所有会话",
+    "changePasswordTitle": "修改管理员密码",
+    "changePasswordBody": "系统会先验证当前密码，再将新密码保存为 scrypt 哈希；所有远程会话将被撤销。",
+    "currentPassword": "当前密码",
+    "newPassword": "新密码（至少 12 个字符）",
+    "confirmPassword": "确认新密码",
+    "changePassword": "修改密码",
+    "passwordMismatch": "两次输入的新密码不一致。",
+    "passwordChanged": "密码已修改，所有远程会话已撤销。",
     "configurationTitle": "配置",
     "configurationBody": "通过 Host 凭据流程设置密码和隧道 secret。公网部署必须使用 HTTPS，且仅信任显式代理发送的转发请求头。"
   }

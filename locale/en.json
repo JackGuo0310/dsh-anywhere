@@ -16,6 +16,14 @@
     "startTunnel": "Start tunnel",
     "restartTunnel": "Restart tunnel",
     "revokeSessions": "Revoke all sessions",
+    "changePasswordTitle": "Change administrator password",
+    "changePasswordBody": "The current password is verified before the replacement is saved as a scrypt hash. All active remote sessions will be revoked.",
+    "currentPassword": "Current password",
+    "newPassword": "New password (minimum 12 characters)",
+    "confirmPassword": "Confirm new password",
+    "changePassword": "Change password",
+    "passwordMismatch": "New passwords do not match.",
+    "passwordChanged": "Password changed. All remote sessions were revoked.",
     "configurationTitle": "Configuration",
     "configurationBody": "Set passwords and tunnel secrets through the host credential flow. Keep public deployments HTTPS-only and trust forwarding headers only from explicit proxies."
   }

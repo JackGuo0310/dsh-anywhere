@@ -10,7 +10,10 @@ import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 
 type Credentials = {
   resolve(ref: string): Promise<{ value: string } | undefined>
+  set(ref: string, value: string): Promise<void>
 }
+
+type PasswordChangeRequest = { currentPassword?: unknown, newPassword?: unknown }
 
 function redactConfig(config: RemoteAccessConfig) {
   return {
@@ -100,6 +103,25 @@ export class RemoteAccessService extends TypertRemoteService {
     return { id: this.tunnel.id, ...(await this.tunnel.restart()) }
   }
 
+  @Remote('changePassword')
+  async changePassword(request: PasswordChangeRequest): Promise<unknown> {
+    if (!this.gateway) throw new Error('Gateway is not running.')
+    if (!this.config.adminPasswordSecretRef) throw new Error('Administrator password credential reference is not configured.')
+    if (!request || typeof request.currentPassword !== 'string' || typeof request.newPassword !== 'string') {
+      throw new Error('Current and new administrator passwords are required.')
+    }
+    const nextHash = await this.gateway.changeAdminPassword(request.currentPassword, request.newPassword)
+    try {
+      const credentials = this.credentials()
+      await credentials.set(this.config.adminPasswordSecretRef, nextHash)
+    } catch (error) {
+      // Do not leave a runtime-only password after credential persistence fails.
+      await this.stop()
+      throw error
+    }
+    return { changed: true, sessionsRevoked: true }
+  }
+
   @Remote('revokeAllSessions')
   async revokeAllSessions(): Promise<unknown> {
     if (!this.gateway) throw new Error('Gateway is not running.')
@@ -118,11 +140,15 @@ export class RemoteAccessService extends TypertRemoteService {
     return undefined
   }
 
-  private async resolveCredential(ref: string | undefined): Promise<string | undefined> {
-    if (!ref) return undefined
+  private credentials(): Credentials {
     const credentials = this.ctx.get('credentials') as Credentials | undefined
     if (!credentials) throw new Error('DSH credentials service is required when a secret reference is configured.')
-    return (await credentials.resolve(ref))?.value
+    return credentials
+  }
+
+  private async resolveCredential(ref: string | undefined): Promise<string | undefined> {
+    if (!ref) return undefined
+    return (await this.credentials().resolve(ref))?.value
   }
 
   private async loadPasswordHash(): Promise<string | undefined> {

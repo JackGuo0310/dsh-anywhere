@@ -53,6 +53,7 @@ export class RemoteGateway {
   }
 
   async bootstrapAdmin(password: string): Promise<void> { await this.auth.bootstrap(password) }
+  async changeAdminPassword(currentPassword: string, nextPassword: string): Promise<string> { return this.auth.changePassword(currentPassword, nextPassword) }
   passwordRecord(): string | undefined { return this.auth.passwordRecord() }
   revokeAllSessions(): void { this.auth.revokeAll() }
 

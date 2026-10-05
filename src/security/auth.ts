@@ -27,6 +27,14 @@ export class AuthService {
     this.passwordHash = await hashPassword(password)
   }
 
+  async changePassword(currentPassword: string, nextPassword: string): Promise<string> {
+    if (!this.passwordHash || !(await verifyPassword(currentPassword, this.passwordHash))) throw new Error('Current administrator password is invalid.')
+    const nextHash = await hashPassword(nextPassword)
+    this.passwordHash = nextHash
+    this.revokeAll()
+    return nextHash
+  }
+
   async login(username: string, password: string, req: IncomingMessage): Promise<{ ok: boolean; retryAfterSeconds?: number; session?: { id: string; csrfToken: string } }> {
     const ip = remoteClientIp(req, this.options.trustedProxies)
     const ipState = this.ipLimiter.check(`ip:${ip}`)

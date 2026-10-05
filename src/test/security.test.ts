@@ -5,12 +5,22 @@ import { SessionStore } from '../security/session-store.js'
 import { SlidingWindowRateLimiter } from '../security/rate-limit.js'
 import { redactValue } from '../security/redact.js'
 import { canonicalAuthority, parseCookies } from '../security/request-policy.js'
+import { AuthService } from '../security/auth.js'
 
 test('password hash verifies only the original password', async () => {
   const hash = await hashPassword('correct horse battery staple')
   assert.equal(await verifyPassword('correct horse battery staple', hash), true)
   assert.equal(await verifyPassword('incorrect horse battery staple', hash), false)
   await assert.rejects(() => hashPassword('short'), /12 characters/)
+})
+
+test('password change verifies the current password and revokes sessions', async () => {
+  const auth = new AuthService({ passwordHash: await hashPassword('correct horse battery staple'), sessionTtlMinutes: 60, secureCookie: false, trustedProxies: [] })
+  const session = auth.sessions.create(60)
+  await assert.rejects(() => auth.changePassword('wrong password', 'another correct horse battery staple'), /invalid/i)
+  const replacement = await auth.changePassword('correct horse battery staple', 'another correct horse battery staple')
+  assert.equal(await verifyPassword('another correct horse battery staple', replacement), true)
+  assert.equal(auth.sessions.get(session.id), undefined)
 })
 
 test('session store uses opaque id and expires sessions', () => {
