@@ -89,7 +89,9 @@ function SettingsSection(props: { t: Translator, call: HostCall, React: ReactLik
       else if (method === 'restartTunnel') setFeedback({ tone: 'success', message: t('tunnelRestarted') })
       else if (method === 'revokeAllSessions') setFeedback({ tone: 'success', message: t('sessionsRevoked') })
     } catch (error) {
-      setFeedback({ tone: 'error', message: error instanceof Error ? error.message : String(error) })
+      const message = error instanceof Error ? error.message : String(error)
+      const missingTunnel = (method === 'startTunnel' || method === 'restartTunnel') && message === 'No tunnel provider is configured.'
+      setFeedback({ tone: 'error', message: missingTunnel ? t('tunnelNeedsConfiguration') : message })
     } finally {
       setBusy(undefined)
     }
@@ -136,8 +138,8 @@ function SettingsSection(props: { t: Translator, call: HostCall, React: ReactLik
     h('section', { className: 'dsh-remote-card' },
       h('h2', null, t('tunnelTitle')), h('p', null, t('tunnelBody')),
       h('div', { className: 'dsh-remote-actions' },
-        h('button', { className: 'dsh-remote-button dsh-remote-button-primary', type: 'button', disabled: !!busy || !gatewayStatus?.tunnel, onClick: () => invoke('startTunnel') }, t('startTunnel')),
-        h('button', { className: 'dsh-remote-button', type: 'button', disabled: !!busy || !gatewayStatus?.tunnel, onClick: () => invoke('restartTunnel') }, t('restartTunnel')),
+        h('button', { className: 'dsh-remote-button dsh-remote-button-primary', type: 'button', disabled: !!busy, onClick: () => invoke('startTunnel') }, t('startTunnel')),
+        h('button', { className: 'dsh-remote-button', type: 'button', disabled: !!busy, onClick: () => invoke('restartTunnel') }, t('restartTunnel')),
         h('button', { className: 'dsh-remote-button', type: 'button', disabled: !!busy || !gatewayStatus?.running, onClick: () => invoke('revokeAllSessions') }, t('revokeSessions')),
       ),
       feedback ? h('div', { className: 'dsh-remote-feedback', 'data-tone': feedback.tone, role: feedback.tone === 'error' ? 'alert' : 'status' }, feedback.message) : null,

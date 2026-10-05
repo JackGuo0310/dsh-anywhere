@@ -27,7 +27,8 @@
       "tailscaleNotInstalled": "Tailscale is not installed, or its command is not on PATH.",
       "tailscaleDisconnected": "Tailscale is installed but not connected.",
       "tunnelTitle": "Connections and sessions",
-      "tunnelBody": "Tunnel controls remain disabled until a provider is configured. Revoking sessions signs out every remote device.",
+      "tunnelBody": "Configure a provider before starting or restarting the tunnel. Revoking sessions signs out every remote device.",
+      "tunnelNeedsConfiguration": "No tunnel provider is configured. Complete the tunnel settings in the configuration file first.",
       "startTunnel": "Start tunnel",
       "restartTunnel": "Restart tunnel",
       "revokeSessions": "Revoke all sessions",
@@ -69,7 +70,8 @@
       "tailscaleNotInstalled": "\u672A\u5B89\u88C5 Tailscale\uFF0C\u6216 tailscale \u547D\u4EE4\u4E0D\u5728 PATH \u4E2D\u3002",
       "tailscaleDisconnected": "Tailscale \u5DF2\u5B89\u88C5\uFF0C\u4F46\u5F53\u524D\u672A\u8FDE\u63A5\u3002",
       "tunnelTitle": "\u8FDE\u63A5\u4E0E\u4F1A\u8BDD",
-      "tunnelBody": "\u96A7\u9053\u672A\u914D\u7F6E\u65F6\uFF0C\u76F8\u5173\u64CD\u4F5C\u4F1A\u4FDD\u6301\u7981\u7528\u3002\u64A4\u9500\u4F1A\u8BDD\u4F1A\u8BA9\u6240\u6709\u8FDC\u7A0B\u8BBE\u5907\u91CD\u65B0\u767B\u5F55\u3002",
+      "tunnelBody": "\u542F\u52A8\u6216\u91CD\u542F\u96A7\u9053\u524D\u9700\u5148\u5B8C\u6210\u63D0\u4F9B\u5546\u914D\u7F6E\u3002\u64A4\u9500\u4F1A\u8BDD\u4F1A\u8BA9\u6240\u6709\u8FDC\u7A0B\u8BBE\u5907\u91CD\u65B0\u767B\u5F55\u3002",
+      "tunnelNeedsConfiguration": "\u5C1A\u672A\u914D\u7F6E\u96A7\u9053\u63D0\u4F9B\u5546\uFF0C\u8BF7\u5148\u5728\u914D\u7F6E\u6587\u4EF6\u4E2D\u5B8C\u6210\u8BBE\u7F6E\u3002",
       "startTunnel": "\u542F\u52A8\u96A7\u9053",
       "restartTunnel": "\u91CD\u542F\u96A7\u9053",
       "revokeSessions": "\u64A4\u9500\u6240\u6709\u4F1A\u8BDD",
@@ -147,7 +149,9 @@
         else if (method === "restartTunnel") setFeedback({ tone: "success", message: t("tunnelRestarted") });
         else if (method === "revokeAllSessions") setFeedback({ tone: "success", message: t("sessionsRevoked") });
       } catch (error) {
-        setFeedback({ tone: "error", message: error instanceof Error ? error.message : String(error) });
+        const message = error instanceof Error ? error.message : String(error);
+        const missingTunnel = (method === "startTunnel" || method === "restartTunnel") && message === "No tunnel provider is configured.";
+        setFeedback({ tone: "error", message: missingTunnel ? t("tunnelNeedsConfiguration") : message });
       } finally {
         setBusy(void 0);
       }
@@ -208,8 +212,8 @@
         h(
           "div",
           { className: "dsh-remote-actions" },
-          h("button", { className: "dsh-remote-button dsh-remote-button-primary", type: "button", disabled: !!busy || !gatewayStatus?.tunnel, onClick: () => invoke("startTunnel") }, t("startTunnel")),
-          h("button", { className: "dsh-remote-button", type: "button", disabled: !!busy || !gatewayStatus?.tunnel, onClick: () => invoke("restartTunnel") }, t("restartTunnel")),
+          h("button", { className: "dsh-remote-button dsh-remote-button-primary", type: "button", disabled: !!busy, onClick: () => invoke("startTunnel") }, t("startTunnel")),
+          h("button", { className: "dsh-remote-button", type: "button", disabled: !!busy, onClick: () => invoke("restartTunnel") }, t("restartTunnel")),
           h("button", { className: "dsh-remote-button", type: "button", disabled: !!busy || !gatewayStatus?.running, onClick: () => invoke("revokeAllSessions") }, t("revokeSessions"))
         ),
         feedback ? h("div", { className: "dsh-remote-feedback", "data-tone": feedback.tone, role: feedback.tone === "error" ? "alert" : "status" }, feedback.message) : null
