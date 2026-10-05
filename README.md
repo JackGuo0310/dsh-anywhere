@@ -28,20 +28,33 @@
 
 设置页可修改管理员密码：必须输入当前密码，新的密码至少 12 个字符，且会被保存为 scrypt 哈希到 `adminPasswordSecretRef` 指向的 DSH credential。改密成功后会立即撤销全部远程会话；原始密码不会写入配置、状态或日志。
 
-## 发布前元数据
+## 版本兼容性
 
-发布者必须在发布前将 `package.json` 的 `repository` 字段设置为实际公开仓库 URL；开发版本刻意不包含虚假的仓库地址。
+当前 `v0.1.0` 锁定 DeepSeek Harness `0.2.1-alpha.1` 运行时：
 
-## 安装（发布包）
+- `@deepseek-ai/cordis`：`~4.0.5-alpha.1`
+- `@deepseek-ai/dsh-credentials`：`0.2.1-alpha.1`
+- `@deepseek-ai/dsh-typert-protocol`：`0.2.1-alpha.1`
+
+安装前请确认目标 DSH profile 提供这些 peer 版本；不兼容的版本不应通过忽略 peer 依赖警告强行安装。
+
+## 安装（Git tag）
+
+`v0.1.0` 尚未发布到 npm。可在目标机器使用 Git tag 安装：
 
 ```powershell
-# 在本仓库中构建发行文件
-npm ci
-npm run build
-
-# 用户自行选择 profile 安装；本开发工作不会执行此命令
-dsh plugin --profile web add <已发布包名或本包目录>
+# dsh 会将 bundle 安装到指定 profile；按你的实际 profile 名替换 web。
+dsh plugin --profile web add https://github.com/JackGuo0310/dsh-anywhere.git#v0.1.0
 ```
+
+也可先克隆该 tag 并从本地目录安装：
+
+```powershell
+git clone --branch v0.1.0 --depth 1 https://github.com/JackGuo0310/dsh-anywhere.git
+dsh plugin --profile web add .\dsh-anywhere
+```
+
+安装前，目标 DSH 环境需要已经具备上述 peer 依赖。安装操作会修改指定 profile；本开发过程没有安装或启用到当前 DSH profile。
 
 安装后，通过 DSH 设置页配置 `dsh-remote-access`。管理员密码必须先以 `scrypt$v1$...` 哈希写入 DSH credentials 服务，并将对应 credential reference 填入 `adminPasswordSecretRef`；原始密码不会写入 YAML、日志或插件状态。
 
@@ -70,7 +83,7 @@ npm test
 
 ## 平台验证
 
-- **Windows**：在 Windows Node 环境执行了 `npm run check`、`npm run build` 与 `npm test`，12/12 测试通过。
+- **Windows**：在 Windows Node 环境执行了 `npm run check`、`npm run build` 与 `npm test`，14/14 测试通过。
 - **Linux**：代码只依赖 Node 22 的跨平台模块；`spawn(..., { windowsHide: true })` 在 Linux 被 Node 忽略。尚未在真实 Linux host 上运行集成测试，发布前应执行同一命令并测试 `frpc` 生命周期。
 - 未在活动 DSH profile 中安装，因此未对真实 DSH 浏览器入口做端到端验证；这是避免开发期暴露/影响本体的刻意限制。
 
