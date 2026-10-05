@@ -7,6 +7,7 @@ type RemoteCallResult = {
     };
 };
 type ClientContext = {
+    effect: (effect: () => void | (() => void)) => void;
     slots: {
         inject: (slot: string, factory: () => (() => void) | void) => (() => void) | void;
         register: (options: {

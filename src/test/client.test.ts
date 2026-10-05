@@ -28,6 +28,7 @@ function bootClientModule() {
   const slots: SlotRow[] = []
   const rpcCalls: { endpoint: string, payload: { args: unknown } }[] = []
   const localeRegistrations: { namespace: string, locale: string, dict: Record<string, string> }[] = []
+  let disposals = 0
   for (const name of ['slots', 'locale', 'connection']) ctx.provide(name, undefined as never)
   ctx.set('connection', {
     rpc: {
@@ -38,17 +39,17 @@ function bootClientModule() {
     },
   })
   ctx.set('slots', {
-    inject: (_key: string, callback: () => unknown) => { callback(); return () => undefined },
-    register: (options: SlotRow) => { slots.push(options); return () => undefined },
+    inject: (_key: string, callback: () => unknown) => { callback(); return () => { disposals++ } },
+    register: (options: SlotRow) => { slots.push(options); return () => { disposals++ } },
   })
   ctx.set('locale', {
     register: (namespace: string, locale: string, dict: Record<string, string>) => {
       localeRegistrations.push({ namespace, locale, dict })
-      return () => undefined
+      return () => { disposals++ }
     },
     bind: (namespace: string) => (key: string) => `${namespace}.${key}`,
   })
-  return { ctx, slots, rpcCalls, localeRegistrations }
+  return { ctx, slots, rpcCalls, localeRegistrations, getDisposals: () => disposals }
 }
 
 async function boot(ctx: Context) {
@@ -62,6 +63,13 @@ test('client half activates under cordis and registers its settings section', as
   const fork = await boot(ctx)
   assert.equal(fork.state, 2, 'the Client half must reach ACTIVE, not FAILED')
   assert.deepEqual(slots.map((row) => `${row.name}#${row.id}`), ['settings.section#dsh-remote-access'])
+})
+
+test('client half releases slot and locale resources on disposal', async () => {
+  const { ctx, getDisposals } = bootClientModule()
+  const fork = await boot(ctx)
+  await fork.dispose()
+  assert.equal(getDisposals(), 3)
 })
 
 test('client half injects every service it reads', () => {

@@ -12,10 +12,10 @@ const css = `
 .dsh-remote-row{display:flex;align-items:center;justify-content:space-between;gap:18px;min-height:48px;border-bottom:1px solid var(--dsw-alias-border-l1)}
 .dsh-remote-row:nth-last-child(-n+2){border-bottom:0}.dsh-remote-label{font-size:14px}.dsh-remote-value{color:var(--dsw-alias-label-secondary);font-size:14px;text-align:right;overflow-wrap:anywhere}
 .dsh-remote-value[data-state=success]{color:var(--dsw-alias-state-success-primary)}.dsh-remote-value[data-state=idle]{color:var(--dsw-alias-state-idle-primary)}
-.dsh-remote-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}.dsh-remote-button{min-height:36px;padding:0 14px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font:inherit;font-size:14px;cursor:pointer}
-.dsh-remote-button:hover{background:var(--dsw-alias-bg-layer-2)}.dsh-remote-button-primary{border-color:transparent;background:var(--dsw-alias-label-primary);color:var(--dsw-alias-bg-base)}.dsh-remote-button-primary:hover{opacity:.88}.dsh-remote-button:disabled{opacity:.5;cursor:wait}
+.dsh-remote-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}.dsh-remote-button{min-height:44px;padding:0 14px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font:inherit;font-size:14px;cursor:pointer}
+.dsh-remote-button:hover{background:var(--dsw-alias-bg-layer-2)}.dsh-remote-button:focus-visible,.dsh-remote-fields input:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}.dsh-remote-button-primary{border-color:transparent;background:var(--dsw-alias-label-primary);color:var(--dsw-alias-bg-base)}.dsh-remote-button-primary:hover{opacity:.88}.dsh-remote-button:disabled{opacity:.5;cursor:wait}
 .dsh-remote-feedback{margin-top:12px;padding:10px 12px;border-radius:8px;background:var(--dsw-alias-bg-layer-2);font-size:14px}.dsh-remote-feedback[data-tone=success]{color:var(--dsw-alias-state-success-primary)}.dsh-remote-feedback[data-tone=error]{color:var(--dsw-alias-state-error-primary)}
-.dsh-remote-fields{display:grid;gap:14px;margin-top:16px}.dsh-remote-fields label{display:grid;gap:7px;font-size:14px}.dsh-remote-fields input{min-height:38px;padding:0 11px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font:inherit;outline:none}.dsh-remote-fields input:focus{border-color:var(--dsw-alias-brand-primary)}
+.dsh-remote-fields{display:grid;gap:14px;margin-top:16px}.dsh-remote-fields label{display:grid;gap:7px;font-size:14px}.dsh-remote-fields input{min-height:44px;padding:0 11px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font:inherit;outline:none}.dsh-remote-fields input:focus{border-color:var(--dsw-alias-brand-primary)}
 @media(max-width:640px){.dsh-remote-status-grid{grid-template-columns:1fr}.dsh-remote-row:nth-last-child(2){border-bottom:1px solid var(--dsw-alias-border-l1)}}
 `;
 function objectOf(value) {
@@ -113,23 +113,28 @@ async function callRemoteHost(ctx, method, args = {}) {
 function insertStyles() {
     if (typeof document === 'undefined' || document.head === null)
         return;
+    const selector = 'style[data-dsh-remote-access-styles]';
+    const existing = document.head.querySelector(selector);
+    if (existing)
+        return;
     const style = document.createElement('style');
     style.dataset.dshRemoteAccessStyles = '';
     style.textContent = css;
     document.head.append(style);
+    return () => style.remove();
 }
 export function createClientModule(React) {
     return {
         inject: ['slots', 'locale', 'connection'],
         apply(ctx) {
-            insertStyles();
+            ctx.effect(() => insertStyles());
             for (const [locale, dict] of Object.entries(dictionaries))
-                ctx.locale.register(localeNamespace, locale, dict);
+                ctx.effect(() => ctx.locale.register(localeNamespace, locale, dict));
             const t = ctx.locale.bind(localeNamespace);
             const call = (method, args) => callRemoteHost(ctx, method, args ?? {});
-            ctx.slots.inject('settings.section', () => ctx.slots.register({
+            ctx.effect(() => ctx.slots.inject('settings.section', () => ctx.slots.register({
                 name: 'settings.section', id: sectionId, order: 80, label: () => t('title'), inject: () => ({ t, call, React }),
-            }, SettingsSection));
+            }, SettingsSection)));
         },
     };
 }
