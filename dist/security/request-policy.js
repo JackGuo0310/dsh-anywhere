@@ -25,10 +25,26 @@ export function canonicalAuthority(value) {
         return undefined;
     }
 }
+function ipv4Number(value) {
+    if (isIP(value) !== 4)
+        return undefined;
+    return value.split('.').reduce((total, octet) => (total << 8) + Number(octet), 0) >>> 0;
+}
+function matchesIpv4Cidr(address, cidr) {
+    const [network, prefixText] = cidr.split('/');
+    const value = ipv4Number(address);
+    const base = ipv4Number(network);
+    const prefix = Number(prefixText);
+    if (value === undefined || base === undefined || !Number.isInteger(prefix) || prefix < 0 || prefix > 32)
+        return false;
+    const mask = prefix === 0 ? 0 : (0xffffffff << (32 - prefix)) >>> 0;
+    return (value & mask) === (base & mask);
+}
 export function isTrustedProxy(remoteAddress, trusted) {
     if (!remoteAddress)
         return false;
-    return trusted.includes(remoteAddress) || (remoteAddress.startsWith('::ffff:') && trusted.includes(remoteAddress.slice(7)));
+    const normalized = remoteAddress.startsWith('::ffff:') ? remoteAddress.slice(7) : remoteAddress;
+    return trusted.some((entry) => entry.includes('/') ? matchesIpv4Cidr(normalized, entry) : entry === remoteAddress || entry === normalized);
 }
 export function effectiveAuthority(req, trustedProxies) {
     const fromProxy = isTrustedProxy(req.socket.remoteAddress, trustedProxies);

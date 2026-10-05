@@ -4,7 +4,7 @@ import { hashPassword, verifyPassword } from '../security/password.js'
 import { SessionStore } from '../security/session-store.js'
 import { SlidingWindowRateLimiter } from '../security/rate-limit.js'
 import { redactValue } from '../security/redact.js'
-import { canonicalAuthority, parseCookies } from '../security/request-policy.js'
+import { canonicalAuthority, isTrustedProxy, parseCookies } from '../security/request-policy.js'
 import { AuthService } from '../security/auth.js'
 
 test('password hash verifies only the original password', async () => {
@@ -45,4 +45,7 @@ test('redaction and authority parsing avoid accidental disclosures', () => {
   assert.deepEqual(parseCookies('bad=%; good=value'), { good: 'value' })
   assert.equal(canonicalAuthority('EXAMPLE.test:443'), 'example.test:443')
   assert.equal(canonicalAuthority('user@example.test'), undefined)
+  assert.equal(isTrustedProxy('192.168.1.42', ['192.168.1.0/24']), true)
+  assert.equal(isTrustedProxy('192.168.2.42', ['192.168.1.0/24']), false)
+  assert.equal(isTrustedProxy('::ffff:10.2.3.4', ['10.0.0.0/8']), true)
 })

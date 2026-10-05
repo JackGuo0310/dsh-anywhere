@@ -20,9 +20,25 @@ export function canonicalAuthority(value: string): string | undefined {
   } catch { return undefined }
 }
 
+function ipv4Number(value: string): number | undefined {
+  if (isIP(value) !== 4) return undefined
+  return value.split('.').reduce((total, octet) => (total << 8) + Number(octet), 0) >>> 0
+}
+
+function matchesIpv4Cidr(address: string, cidr: string): boolean {
+  const [network, prefixText] = cidr.split('/')
+  const value = ipv4Number(address)
+  const base = ipv4Number(network)
+  const prefix = Number(prefixText)
+  if (value === undefined || base === undefined || !Number.isInteger(prefix) || prefix < 0 || prefix > 32) return false
+  const mask = prefix === 0 ? 0 : (0xffffffff << (32 - prefix)) >>> 0
+  return (value & mask) === (base & mask)
+}
+
 export function isTrustedProxy(remoteAddress: string | undefined, trusted: readonly string[]): boolean {
   if (!remoteAddress) return false
-  return trusted.includes(remoteAddress) || (remoteAddress.startsWith('::ffff:') && trusted.includes(remoteAddress.slice(7)))
+  const normalized = remoteAddress.startsWith('::ffff:') ? remoteAddress.slice(7) : remoteAddress
+  return trusted.some((entry) => entry.includes('/') ? matchesIpv4Cidr(normalized, entry) : entry === remoteAddress || entry === normalized)
 }
 
 export function effectiveAuthority(req: IncomingMessage, trustedProxies: readonly string[]): string | undefined {
