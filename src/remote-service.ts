@@ -132,6 +132,7 @@ export class RemoteAccessService extends TypertRemoteService {
   private async createTunnel(): Promise<TunnelProvider | undefined> {
     if (this.config.frp) {
       const token = await this.resolveCredential(this.config.frp.tokenSecretRef)
+      if (this.config.frp.authMethod === 'token' && !token) throw new Error('FRP token credential could not be resolved.')
       return new FrpTunnelProvider({ target: this.config.target, frp: this.config.frp, token })
     }
     if (this.config.customCommandEnabled && this.config.customCommand) {

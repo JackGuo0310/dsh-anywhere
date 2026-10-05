@@ -7,10 +7,14 @@ export declare class CustomCommandTunnelProvider implements TunnelProvider {
     readonly id = "custom-command";
     private child;
     private current;
+    private operation;
     constructor(command: string, args: readonly string[], enabled: boolean);
     status(): TunnelStatus;
     start(): Promise<TunnelStatus>;
     stop(): Promise<void>;
     restart(): Promise<TunnelStatus>;
+    private serialize;
+    private startUnlocked;
+    private stopUnlocked;
 }
 //# sourceMappingURL=custom-command.d.ts.map

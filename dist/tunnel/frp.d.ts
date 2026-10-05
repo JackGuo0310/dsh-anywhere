@@ -11,11 +11,15 @@ export declare class FrpTunnelProvider implements TunnelProvider {
     private child;
     private temporaryDirectory;
     private current;
+    private operation;
     constructor(config: FrpRuntimeConfig);
     status(): TunnelStatus;
     start(): Promise<TunnelStatus>;
     stop(): Promise<void>;
     restart(): Promise<TunnelStatus>;
+    private serialize;
+    private startUnlocked;
+    private stopUnlocked;
     private cleanupTemporaryFiles;
 }
 //# sourceMappingURL=frp.d.ts.map
