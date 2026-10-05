@@ -28,7 +28,6 @@ type ClientContext = {
             }, signal?: AbortSignal) => Promise<RemoteCallResult>;
         };
     };
-    effect?: (callback: () => void | (() => void), label?: string) => void;
 };
 type ReactLike = {
     createElement: (type: string | ((props: any) => unknown), props?: Record<string, unknown> | null, ...children: unknown[]) => unknown;

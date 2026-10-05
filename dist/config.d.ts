@@ -101,11 +101,11 @@ export declare const configSchema: z.ZodObject<{
         args: string[];
     }>>;
 }, "strict", z.ZodTypeAny, {
-    version: 1;
-    enabled: boolean;
     listenHost: string;
     listenPort: number;
-    mode: "loopback" | "lan" | "tailscale" | "tunnel";
+    version: 1;
+    enabled: boolean;
+    mode: "tunnel" | "loopback" | "lan" | "tailscale";
     target: {
         host: string;
         port: number;
@@ -134,6 +134,8 @@ export declare const configSchema: z.ZodObject<{
         args: string[];
     } | undefined;
 }, {
+    listenHost?: string | undefined;
+    listenPort?: number | undefined;
     frp?: {
         executablePath?: string | undefined;
         serverAddress?: string | undefined;
@@ -147,9 +149,7 @@ export declare const configSchema: z.ZodObject<{
     } | undefined;
     version?: 1 | undefined;
     enabled?: boolean | undefined;
-    listenHost?: string | undefined;
-    listenPort?: number | undefined;
-    mode?: "loopback" | "lan" | "tailscale" | "tunnel" | undefined;
+    mode?: "tunnel" | "loopback" | "lan" | "tailscale" | undefined;
     target?: {
         host?: string | undefined;
         port?: number | undefined;
