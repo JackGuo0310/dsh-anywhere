@@ -34,9 +34,9 @@ npm run build
 dsh plugin --profile web add <已发布包名或本包目录>
 ```
 
-安装后，通过 DSH 设置页配置 `dsh-remote-access`：
+安装后，通过 DSH 设置页配置 `dsh-remote-access`。管理员密码必须先以 `scrypt$v1$...` 哈希写入 DSH credentials 服务，并将对应 credential reference 填入 `adminPasswordSecretRef`；原始密码不会写入 YAML、日志或插件状态。
 
-1. 首先设定管理员密码（由 credentials/安全存储接管，不要写进 YAML）。
+1. 通过 DSH credential 管理界面或部署自动化保存管理员密码哈希，切勿将原始密码写入 YAML。
 2. 保持 DSH Web 监听 `127.0.0.1`，配置插件网关监听端口，例如 `4173`。
 3. 局域网：显式选择 `0.0.0.0` 或指定 LAN IP；浏览器访问 `http://<LAN-IP>:4173`。
 4. Tailscale：启用受控监听后使用检测到的 `100.x.y.z:4173` 或 MagicDNS。
@@ -57,18 +57,18 @@ npm run build
 npm test
 ```
 
-测试覆盖配置拒绝规则、密码哈希、会话、限速、日志脱敏、FRP 配置、Tailscale 解析和 IPv6 URL。
+测试覆盖配置拒绝规则、密码哈希、会话、限速、日志脱敏、FRP 配置、Tailscale 解析、IPv6 URL、认证 HTTP 代理、CSRF 登出和认证 WebSocket 代理。
 
 ## 平台验证
 
-- **Windows**：在 Windows Node 环境执行了 `npm run build` 与 `npm test`，10/10 测试通过。
+- **Windows**：在 Windows Node 环境执行了 `npm run check`、`npm run build` 与 `npm test`，12/12 测试通过。
 - **Linux**：代码只依赖 Node 22 的跨平台模块；`spawn(..., { windowsHide: true })` 在 Linux 被 Node 忽略。尚未在真实 Linux host 上运行集成测试，发布前应执行同一命令并测试 `frpc` 生命周期。
 - 未在活动 DSH profile 中安装，因此未对真实 DSH 浏览器入口做端到端验证；这是避免开发期暴露/影响本体的刻意限制。
 
 ## 已知限制
 
 - DSH 当前 Webserver 的 SPA fallback 不能由插件截获；安全设计因此使用独立网关端口，而不是劫持原 DSH listener。
-- 真实 settings/credentials UI 动作需要根据安装时的 DSH 版本注册远程调用接口；当前版本提供了设置页模型与核心 Host 实现，但不写入当前 profile。
+- 设置页客户端产物采用 DSH Module Loader，并通过 `dshRemoteAccess` Typert RPC 调用状态、网络发现、Tailscale 检测、会话撤销与隧道操作；由于本开发会话不得安装插件，未在活动 profile 中进行真实页面端到端验证。
 - 公网 TLS、FRP 服务端、防火墙、DNS、Tailscale ACL 属于部署者责任。
 
 ## 许可证与来源
