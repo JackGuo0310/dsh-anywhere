@@ -13,6 +13,8 @@
     "status": "网关状态",
     "discoverNetwork": "检测局域网地址",
     "detectTailscale": "检测 Tailscale",
+    "startTunnel": "启动隧道",
+    "restartTunnel": "重启隧道",
     "revokeSessions": "撤销所有会话",
     "configurationTitle": "配置",
     "configurationBody": "通过 Host 凭据流程设置密码和隧道 secret。公网部署必须使用 HTTPS，且仅信任显式代理发送的转发请求头。"

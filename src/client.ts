@@ -63,6 +63,8 @@ function SettingsSection(props: { t: Translator, call: HostCall, React: ReactLik
         h('button', { type: 'button', disabled: busy, onClick: () => invoke('status') }, t('status')),
         h('button', { type: 'button', disabled: busy, onClick: () => invoke('discoverNetwork') }, t('discoverNetwork')),
         h('button', { type: 'button', disabled: busy, onClick: () => invoke('detectTailscale') }, t('detectTailscale')),
+        h('button', { type: 'button', disabled: busy, onClick: () => invoke('startTunnel') }, t('startTunnel')),
+        h('button', { type: 'button', disabled: busy, onClick: () => invoke('restartTunnel') }, t('restartTunnel')),
         h('button', { type: 'button', disabled: busy, onClick: () => invoke('revokeAllSessions') }, t('revokeSessions')),
       ),
       status ? h('pre', { className: 'dsh-remote-status', role: 'status' }, status) : null,

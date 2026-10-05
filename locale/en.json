@@ -13,6 +13,8 @@
     "status": "Gateway status",
     "discoverNetwork": "Discover LAN addresses",
     "detectTailscale": "Detect Tailscale",
+    "startTunnel": "Start tunnel",
+    "restartTunnel": "Restart tunnel",
     "revokeSessions": "Revoke all sessions",
     "configurationTitle": "Configuration",
     "configurationBody": "Set passwords and tunnel secrets through the host credential flow. Keep public deployments HTTPS-only and trust forwarding headers only from explicit proxies."
