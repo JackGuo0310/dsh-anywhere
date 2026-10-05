@@ -1,26 +1,87 @@
-const title = '远程访问网关'
+const packageId = '@dsh-community/dsh-remote-access'
+const sectionId = 'dsh-remote-access'
 
-/**
- * The host-facing UI is intentionally declarative. The actual slot and renderer
- * API varies between DSH releases, so this describes the page to the client
- * bridge rather than importing React or mutating the DOM directly.
- */
-export const remoteAccessSettingsPage = {
-  id: 'dsh-remote-access',
-  title,
-  order: 80,
-  description: '通过认证网关安全访问仅限本机的 DSH Web GUI。',
-  sections: [
-    { title: '远程访问总览', message: '默认关闭；启用前先创建管理员账号。', actions: ['重新检测', '重启网关'] },
-    { title: '直连与局域网', fields: ['访问模式', '监听地址', '监听端口'], message: '不要暴露原始 DSH Web 端口。' },
-    { title: 'Tailscale', message: '只读取本机状态，不请求账号、认证密钥或 ACL 修改。', actions: ['检测 Tailscale'] },
-    { title: '公网域名与隧道', message: '公网入口必须使用 HTTPS；FRP 是首个适配器。', fields: ['域名', 'frpc 可执行文件'], actions: ['生成 FRP 配置示例'] },
-    { title: '登录与安全', message: '密码不会显示或写入普通配置；会话使用 HttpOnly、SameSite=Strict、CSRF token 和登录限速。', actions: ['创建或修改管理员密码', '撤销全部会话'] },
-    { title: '运行状态及诊断', message: '日志自动隐藏 password、token、cookie 和 Authorization 等敏感字段。' },
-    { title: '高级设置', message: '仅信任已验证的 TLS 终止代理；自定义隧道命令默认关闭。' }
-  ]
-} as const
+type HostCall = (method: string, args?: unknown) => Promise<unknown>
+type Translator = (key: string) => string
 
-export function apply(ctx: { slots?: { register?: (slot: string, entry: unknown) => (() => void) | void } }): void {
-  ctx.slots?.register?.('settings.section', remoteAccessSettingsPage)
+type ClientContext = {
+  slots: {
+    inject: (slot: string, factory: () => (() => void) | void) => (() => void) | void
+    register: (options: { name: string, id: string, order?: number, label?: () => string, inject?: () => unknown }, component: unknown) => (() => void) | void
+  }
+  locale: { bind: (namespace: string) => Translator }
 }
+
+type ReactLike = {
+  createElement: (type: string | ((props: any) => unknown), props?: Record<string, unknown> | null, ...children: unknown[]) => unknown
+  useCallback: <T>(callback: T, dependencies: unknown[]) => T
+  useEffect: (effect: () => void | (() => void), dependencies: unknown[]) => void
+  useState: <T>(initial: T) => [T, (value: T | ((previous: T) => T)) => void]
+}
+
+const css = `
+.dsh-remote-access{max-width:840px;padding:24px;color:var(--dsh-color-text,#e9f0ec)}
+.dsh-remote-access h1{margin:0 0 6px;font-size:28px}.dsh-remote-access h2{margin:0;font-size:18px}
+.dsh-remote-access p{color:var(--dsh-color-text-muted,#a9bbb1)}.dsh-remote-card{margin-top:16px;padding:18px;border:1px solid var(--dsh-color-border,#3d5046);border-radius:12px;background:var(--dsh-color-surface,#18221d)}
+.dsh-remote-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}.dsh-remote-access button{min-height:38px;padding:0 12px;border:0;border-radius:8px;background:var(--dsh-color-primary,#2c8462);color:#fff;font:inherit;font-weight:650;cursor:pointer}.dsh-remote-access button:disabled{opacity:.55;cursor:wait}
+.dsh-remote-status{margin-top:12px;padding:10px;border-radius:8px;background:var(--dsh-color-surface-raised,#223129);white-space:pre-wrap}.dsh-remote-warning{border-left:4px solid #e0a547}.dsh-remote-error{border-left:4px solid #db5b58}
+`
+
+function SettingsSection(props: { t: Translator, call: HostCall, React: ReactLike }) {
+  const { t, call, React } = props
+  const h = React.createElement
+  const [status, setStatus] = React.useState('')
+  const [busy, setBusy] = React.useState(false)
+
+  const invoke = React.useCallback(async (method: string) => {
+    setBusy(true)
+    setStatus('')
+    try {
+      const result = await call(method)
+      setStatus(JSON.stringify(result, null, 2))
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : String(error))
+    } finally {
+      setBusy(false)
+    }
+  }, [call])
+
+  return h('main', { className: 'dsh-remote-access' },
+    h('h1', null, t('title')),
+    h('p', null, t('summary')),
+    h('section', { className: 'dsh-remote-card dsh-remote-warning' },
+      h('h2', null, t('safetyTitle')),
+      h('p', null, t('safetyBody')),
+    ),
+    h('section', { className: 'dsh-remote-card' },
+      h('h2', null, t('operationsTitle')),
+      h('p', null, t('operationsBody')),
+      h('div', { className: 'dsh-remote-actions' },
+        h('button', { type: 'button', disabled: busy, onClick: () => invoke('status') }, t('status')),
+        h('button', { type: 'button', disabled: busy, onClick: () => invoke('discoverNetwork') }, t('discoverNetwork')),
+        h('button', { type: 'button', disabled: busy, onClick: () => invoke('detectTailscale') }, t('detectTailscale')),
+        h('button', { type: 'button', disabled: busy, onClick: () => invoke('revokeAllSessions') }, t('revokeSessions')),
+      ),
+      status ? h('pre', { className: 'dsh-remote-status', role: 'status' }, status) : null,
+    ),
+    h('section', { className: 'dsh-remote-card' },
+      h('h2', null, t('configurationTitle')),
+      h('p', null, t('configurationBody')),
+    ),
+  )
+}
+
+export function apply(ctx: ClientContext, runtime: { React: ReactLike, host: { call: HostCall }, styles?: { insert: (css: string) => (() => void) | void } }): void {
+  const { React, host, styles } = runtime
+  if (styles) styles.insert(css)
+  const t = ctx.locale.bind('dsh-remote-access')
+  ctx.slots.inject('settings.section', () => ctx.slots.register({
+    name: 'settings.section',
+    id: sectionId,
+    order: 80,
+    label: () => t('title'),
+    inject: () => ({ t, call: host.call, React }),
+  }, SettingsSection))
+}
+
+export const clientModule = { packageId, sectionId }

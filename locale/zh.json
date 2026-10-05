@@ -2,5 +2,19 @@
   "meta": {
     "title": "远程访问网关",
     "description": "通过登录认证安全地从局域网、Tailscale 或隧道访问仅限本机的 DSH Web GUI。"
+  },
+  "dsh-remote-access": {
+    "title": "远程访问网关",
+    "summary": "为仅限本机的 DSH Web GUI 提供独立的认证网关。",
+    "safetyTitle": "安全边界",
+    "safetyBody": "不要暴露 DSH 原始端口。外部访问需要管理员密码、会话保护、CSRF 检查和来源校验。",
+    "operationsTitle": "只读诊断与控制",
+    "operationsBody": "这些操作不会返回密码、令牌、Cookie 或 secret 引用。",
+    "status": "网关状态",
+    "discoverNetwork": "检测局域网地址",
+    "detectTailscale": "检测 Tailscale",
+    "revokeSessions": "撤销所有会话",
+    "configurationTitle": "配置",
+    "configurationBody": "通过 Host 凭据流程设置密码和隧道 secret。公网部署必须使用 HTTPS，且仅信任显式代理发送的转发请求头。"
   }
 }
