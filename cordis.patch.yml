@@ -1,0 +1,11 @@
+- insert:
+    - id: dsh-remote-access
+      name: '@dsh-community/dsh-remote-access'
+      config:
+        enabled: false
+        listenHost: '127.0.0.1'
+        listenPort: 4173
+        target:
+          host: '127.0.0.1'
+          port: 3000
+        mode: 'loopback'

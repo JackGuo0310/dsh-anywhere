@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Remote Access Gateway",
+    "description": "Protect and publish a loopback-only DSH Web GUI through authenticated LAN, Tailscale, or tunnel access."
+  }
+}

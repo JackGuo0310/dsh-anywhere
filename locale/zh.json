@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "远程访问网关",
+    "description": "通过登录认证安全地从局域网、Tailscale 或隧道访问仅限本机的 DSH Web GUI。"
+  }
+}
