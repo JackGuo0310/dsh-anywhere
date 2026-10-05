@@ -73,6 +73,8 @@ test('gateway authenticates then proxies HTTP and enforces CSRF logout', async (
     assert.equal(unsafeProxy.status, 403)
     const safeProxy = await fetch(`${base}/app`, { method: 'POST', headers: { cookie, origin: base, 'x-csrf-token': csrfToken } })
     assert.equal(safeProxy.status, 200)
+    const oversized = await fetch(`${base}/app`, { method: 'POST', headers: { cookie, origin: base, 'x-csrf-token': csrfToken }, body: 'x'.repeat(1_024_001) })
+    assert.equal(oversized.status, 413)
 
     const badLogout = await fetch(`${base}/_dsh_remote/logout`, { method: 'POST', headers: { cookie, origin: base } })
     assert.equal(badLogout.status, 403)

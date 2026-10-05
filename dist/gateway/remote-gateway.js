@@ -109,7 +109,10 @@ export class RemoteGateway {
             return this.json(res, 401, { error: 'Login required.' });
         if (!this.auth.requireCsrf(req))
             return this.json(res, 403, { error: 'CSRF check failed.' });
-        proxyHttp(req, res, this.config.target);
+        const declaredLength = Number(req.headers['content-length'] ?? 0);
+        if (Number.isFinite(declaredLength) && declaredLength > this.config.maxRequestBodyBytes)
+            return this.json(res, 413, { error: 'Request body exceeds configured limit.' });
+        proxyHttp(req, res, this.config.target, this.config.maxRequestBodyBytes);
     }
     handleUpgrade(req, socket, head) {
         if (!hostAllowed(req, this.allowedAuthorities, this.config.trustedProxyCidrs) || !originAllowed(req, this.allowedAuthorities, this.config.trustedProxyCidrs) || !this.auth.requireSession(req)) {

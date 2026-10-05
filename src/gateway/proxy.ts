@@ -7,7 +7,7 @@ import type { RemoteAccessConfig } from '../config.js'
 
 const hopByHop = new Set(['connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization', 'te', 'trailer', 'transfer-encoding', 'upgrade'])
 
-export function proxyHttp(req: IncomingMessage, res: ServerResponse, target: RemoteAccessConfig['target']): void {
+export function proxyHttp(req: IncomingMessage, res: ServerResponse, target: RemoteAccessConfig['target'], maxRequestBodyBytes: number): void {
   const transport = target.protocol === 'https' ? httpsRequest : httpRequest
   const headers = { ...req.headers }
   const connectionTokens = typeof req.headers.connection === 'string' ? req.headers.connection.split(',').map((value) => value.trim().toLowerCase()).filter(Boolean) : []
@@ -33,6 +33,18 @@ export function proxyHttp(req: IncomingMessage, res: ServerResponse, target: Rem
   upstream.on('error', () => {
     if (!res.headersSent) res.writeHead(502, { 'content-type': 'application/json; charset=utf-8' })
     res.end(JSON.stringify({ error: 'DSH upstream is unavailable.' }))
+  })
+  let requestBytes = 0
+  let exceeded = false
+  req.on('data', (chunk: Buffer | string) => {
+    requestBytes += Buffer.isBuffer(chunk) ? chunk.length : Buffer.byteLength(chunk)
+    if (requestBytes > maxRequestBodyBytes && !exceeded) {
+      exceeded = true
+      upstream.destroy()
+      if (!res.headersSent) res.writeHead(413, { 'content-type': 'application/json; charset=utf-8' })
+      res.end(JSON.stringify({ error: 'Request body exceeds configured limit.' }))
+      req.destroy()
+    }
   })
   req.on('aborted', () => upstream.destroy())
   req.pipe(upstream)

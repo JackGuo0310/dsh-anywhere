@@ -2,7 +2,7 @@ import { request as httpRequest } from 'node:http';
 import { request as httpsRequest } from 'node:https';
 import { WebSocketServer, WebSocket } from 'ws';
 const hopByHop = new Set(['connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization', 'te', 'trailer', 'transfer-encoding', 'upgrade']);
-export function proxyHttp(req, res, target) {
+export function proxyHttp(req, res, target, maxRequestBodyBytes) {
     const transport = target.protocol === 'https' ? httpsRequest : httpRequest;
     const headers = { ...req.headers };
     const connectionTokens = typeof req.headers.connection === 'string' ? req.headers.connection.split(',').map((value) => value.trim().toLowerCase()).filter(Boolean) : [];
@@ -30,6 +30,19 @@ export function proxyHttp(req, res, target) {
         if (!res.headersSent)
             res.writeHead(502, { 'content-type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({ error: 'DSH upstream is unavailable.' }));
+    });
+    let requestBytes = 0;
+    let exceeded = false;
+    req.on('data', (chunk) => {
+        requestBytes += Buffer.isBuffer(chunk) ? chunk.length : Buffer.byteLength(chunk);
+        if (requestBytes > maxRequestBodyBytes && !exceeded) {
+            exceeded = true;
+            upstream.destroy();
+            if (!res.headersSent)
+                res.writeHead(413, { 'content-type': 'application/json; charset=utf-8' });
+            res.end(JSON.stringify({ error: 'Request body exceeds configured limit.' }));
+            req.destroy();
+        }
     });
     req.on('aborted', () => upstream.destroy());
     req.pipe(upstream);
