@@ -54,8 +54,11 @@ export function isLoopbackHost(host: string): boolean {
 export function assertSafeConfig(value: unknown): RemoteAccessConfig {
   const config = configSchema.parse(value)
   const external = !isLoopbackHost(config.listenHost)
-  if (external && !config.adminConfigured) {
-    throw new Error('External listener requires a configured administrator account.')
+  if (config.enabled && !config.adminPasswordSecretRef) {
+    throw new Error('Enabled gateway requires an administrator password credential reference.')
+  }
+  if (external && (!config.adminConfigured || !config.adminPasswordSecretRef)) {
+    throw new Error('External listener requires a configured administrator account and password credential reference.')
   }
   if (config.mode === 'tunnel') {
     if (!config.publicBaseUrl?.startsWith('https://')) {
