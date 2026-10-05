@@ -5,7 +5,7 @@
   },
   "dsh-remote-access": {
     "title": "Remote Access Gateway",
-    "summary": "A separate authenticated gateway for a loopback-only DSH Web GUI.",
+    "summary": "A login gateway before every direct or public-tunnel path to a loopback-only DSH Web GUI, including HTTP, SSE, WebSocket, and API traffic.",
     "safetyTitle": "Security boundary",
     "safetyBody": "Do not expose DSH's original port. External access requires an administrator password, session protection, CSRF checks, and origin validation.",
     "operationsTitle": "Read-only diagnostics and controls",

@@ -4,11 +4,12 @@
 
 > 本仓库默认 `enabled: false`，开发过程没有安装或启用到当前 DSH profile。
 
-## 支持路径
+## 访问能力与统一安全边界
 
-- **直接 IP + port**：局域网或受控网络直连网关，DSH 原端口不对外。
-- **Tailscale**：读取本机 Tailnet 地址，使用网关地址访问；不管理 Tailscale 登录、ACL 或 DNS。
-- **FRP + 自定义域名**：生成/运行受管 `frpc` 配置，FRP 服务端、域名和 TLS 由部署者控制。
+所有路径都先经过**登录网关**，网关在 HTTP、SSE、WebSocket upgrade 和 API 请求到达 DSH 前统一执行会话认证、Host/Origin 校验，以及对写请求的 CSRF 校验；原始 DSH Web 端口始终保持 loopback，不会被直接公开。
+
+- **直连能力（IP + 端口 / Tailscale）**：局域网、受控网络或 Tailnet 用户直接访问认证网关的 IP 加端口。Tailscale 仅用于发现本机 Tailnet 地址；本插件不管理 Tailscale 登录、ACL 或 DNS。
+- **公网隧道能力（域名 + FRP）**：FRP 将部署者控制的 HTTPS 自定义域名转发到认证网关。插件生成/运行受管 `frpc` 配置；FRP 服务端、TLS、DNS 与防火墙由部署者控制。
 - **扩展点**：`TunnelProvider` 接口允许实现 Cloudflare Tunnel 或其他受控命令适配器。
 
 ## 安全设计
@@ -17,7 +18,7 @@
 - 登录采用版本化 `scrypt` 哈希；密码不写普通配置或日志。
 - `HttpOnly`、`SameSite=Strict` session cookie；公网模式使用 `Secure` cookie。
 - CSRF、Host/Origin 校验、可信代理 allowlist 和登录限速。
-- HTTP/SSE 流式转发、WebSocket upgrade 转发，客户端断开会终止上游请求。
+- 登录网关在 HTTP/SSE 流式转发、WebSocket upgrade 和 API 请求前统一认证；客户端断开会终止上游请求。
 - 请求体上限、会话过期、撤销所有会话、敏感日志字段脱敏。
 - 自定义命令隧道默认关闭，并始终以 argv 执行，禁止 shell 插值。
 

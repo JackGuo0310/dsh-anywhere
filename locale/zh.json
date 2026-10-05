@@ -5,7 +5,7 @@
   },
   "dsh-remote-access": {
     "title": "远程访问网关",
-    "summary": "为仅限本机的 DSH Web GUI 提供独立的认证网关。",
+    "summary": "在所有直连与公网隧道路径前提供登录网关，统一保护仅限本机 DSH Web GUI 的 HTTP、SSE、WebSocket 与 API 请求。",
     "safetyTitle": "安全边界",
     "safetyBody": "不要暴露 DSH 原始端口。外部访问需要管理员密码、会话保护、CSRF 检查和来源校验。",
     "operationsTitle": "只读诊断与控制",
