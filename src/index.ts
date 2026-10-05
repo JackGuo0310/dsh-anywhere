@@ -10,9 +10,9 @@ export { CONFIG_VERSION, assertSafeConfig, configSchema, migrateConfig } from '.
  */
 export async function apply(ctx: Context, rawConfig: RemoteAccessConfig): Promise<void> {
   const config = assertSafeConfig(rawConfig)
-  if (!config.enabled) return
-
   const service = new RemoteAccessService(ctx, config)
-  await service.start()
-  ctx.effect(() => () => service.stop())
+  if (config.enabled) {
+    await service.start()
+    ctx.effect(() => () => service.stop())
+  }
 }

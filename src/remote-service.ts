@@ -45,7 +45,6 @@ export class RemoteAccessService extends TypertRemoteService {
   }
 
   async start(): Promise<void> {
-    if (!this.config.enabled) return
     const passwordHash = await this.loadPasswordHash()
     this.gateway = new RemoteGateway(this.config, passwordHash)
     await this.gateway.start()
@@ -70,10 +69,11 @@ export class RemoteAccessService extends TypertRemoteService {
 
   @Remote('status')
   async status(): Promise<unknown> {
+    const passwordHash = this.gateway?.passwordRecord() ?? await this.loadPasswordHash()
     return {
       configured: redactConfig(this.config),
       running: !!this.gateway,
-      administratorConfigured: !!this.gateway?.passwordRecord(),
+      administratorConfigured: !!passwordHash,
       tunnel: this.tunnel ? { id: this.tunnel.id, ...this.tunnel.status() } : undefined,
     }
   }
