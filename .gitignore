@@ -4,8 +4,8 @@ otherRepo/
 # Node.js
 node_modules/
 coverage/
-dist/
 *.log
+dist/test/
 
 # Local secrets and runtime state
 .env
