@@ -1,5 +1,6 @@
 import type { Context } from '@deepseek-ai/cordis'
 import { assertSafeConfig, type RemoteAccessConfig } from './config.js'
+import { RemoteAccessService } from './remote-service.js'
 
 export { CONFIG_VERSION, assertSafeConfig, configSchema, migrateConfig } from './config.js'
 
@@ -11,8 +12,8 @@ export async function apply(ctx: Context, rawConfig: RemoteAccessConfig): Promis
   const config = assertSafeConfig(rawConfig)
   if (!config.enabled) return
 
-  const { RemoteGateway } = await import('./gateway/remote-gateway.js')
-  const gateway = new RemoteGateway(config)
-  await gateway.start()
-  ctx.effect(() => () => gateway.stop())
+  const service = new RemoteAccessService(ctx, config)
+  await service.start()
+  ctx.provide('dshRemoteAccess', service)
+  ctx.effect(() => () => service.stop())
 }

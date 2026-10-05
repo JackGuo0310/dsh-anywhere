@@ -20,10 +20,11 @@ export class RemoteGateway {
   private readonly auth: AuthService
   private readonly allowedAuthorities: string[]
 
-  constructor(private readonly config: RemoteAccessConfig) {
+  constructor(private readonly config: RemoteAccessConfig, passwordHash?: string) {
     const publicAuthority = config.publicBaseUrl ? new URL(config.publicBaseUrl).host.toLowerCase() : undefined
     this.allowedAuthorities = [...new Set([`${config.listenHost}:${config.listenPort}`.toLowerCase(), publicAuthority].filter(Boolean) as string[])]
     this.auth = new AuthService({
+      passwordHash,
       sessionTtlMinutes: config.sessionTtlMinutes,
       secureCookie: config.mode === 'tunnel',
       trustedProxies: config.trustedProxyCidrs
