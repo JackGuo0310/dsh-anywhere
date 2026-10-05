@@ -1,0 +1,22 @@
+# Research-only repositories; never package or commit their sources.
+otherRepo/
+
+# Node.js
+node_modules/
+coverage/
+dist/
+*.log
+
+# Local secrets and runtime state
+.env
+.env.*
+!.env.example
+.remote-access/
+*.pem
+*.key
+
+# Editors and operating systems
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
