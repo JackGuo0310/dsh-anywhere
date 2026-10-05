@@ -22,7 +22,10 @@ export function proxyHttp(req, res, target) {
         res.writeHead(upstreamRes.statusCode ?? 502, upstreamRes.statusMessage, responseHeaders);
         upstreamRes.pipe(res);
     });
-    upstream.setTimeout(0);
+    const responseClosed = () => upstream.destroy();
+    res.once('close', responseClosed);
+    upstream.on('response', () => res.off('close', responseClosed));
+    upstream.setTimeout(30_000, () => upstream.destroy(new Error('DSH upstream timed out.')));
     upstream.on('error', () => {
         if (!res.headersSent)
             res.writeHead(502, { 'content-type': 'application/json; charset=utf-8' });
@@ -34,12 +37,19 @@ export function proxyHttp(req, res, target) {
 export function bridgeWebSocket(socket, head, req, target) {
     const upstreamUrl = `${target.protocol === 'https' ? 'wss' : 'ws'}://${target.host}:${target.port}${req.url ?? '/'}`;
     const protocols = typeof req.headers['sec-websocket-protocol'] === 'string' ? req.headers['sec-websocket-protocol'].split(',').map((item) => item.trim()) : undefined;
-    const server = new WebSocketServer({ noServer: true });
+    const server = new WebSocketServer({ noServer: true, clientTracking: false, perMessageDeflate: false, maxPayload: 1024 * 1024 });
     server.handleUpgrade(req, socket, head, (client) => {
         const upstream = new WebSocket(upstreamUrl, protocols, { headers: { host: `${target.host}:${target.port}` } });
         const pending = [];
         let pendingBytes = 0;
         const maxPendingBytes = 1024 * 1024;
+        const connectTimeout = setTimeout(() => {
+            if (upstream.readyState === WebSocket.CONNECTING) {
+                upstream.terminate();
+                client.close(1013, 'Upstream connection timed out');
+            }
+        }, 15_000);
+        connectTimeout.unref();
         client.on('message', (data, isBinary) => {
             const message = { data, binary: isBinary };
             if (upstream.readyState === WebSocket.OPEN)
@@ -55,6 +65,7 @@ export function bridgeWebSocket(socket, head, req, target) {
             }
         });
         upstream.on('open', () => {
+            clearTimeout(connectTimeout);
             for (const message of pending)
                 upstream.send(message.data, { binary: message.binary });
             pending.length = 0;
@@ -64,8 +75,8 @@ export function bridgeWebSocket(socket, head, req, target) {
         client.on('error', () => upstream.close());
         upstream.on('message', (data, isBinary) => { if (client.readyState === WebSocket.OPEN)
             client.send(data, { binary: isBinary }); });
-        upstream.on('close', () => client.close());
-        upstream.on('error', () => client.close(1011, 'Upstream unavailable'));
+        upstream.on('close', () => { clearTimeout(connectTimeout); client.close(); });
+        upstream.on('error', () => { clearTimeout(connectTimeout); client.close(1011, 'Upstream unavailable'); });
     });
 }
 //# sourceMappingURL=proxy.js.map
