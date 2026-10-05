@@ -24,6 +24,10 @@
 
 详细模型见 [ARCHITECTURE.md](ARCHITECTURE.md)。
 
+## 发布前元数据
+
+发布者必须在发布前将 `package.json` 的 `repository` 字段设置为实际公开仓库 URL；开发版本刻意不包含虚假的仓库地址。
+
 ## 安装（发布包）
 
 ```powershell
