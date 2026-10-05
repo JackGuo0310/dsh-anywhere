@@ -42,16 +42,19 @@
     "test": "node --test dist/test/**/*.test.js",
     "test:watch": "node --test --watch dist/test/**/*.test.js"
   },
-  "dependencies": {
+  "peerDependencies": {
     "@deepseek-ai/cordis": "~4.0.5-alpha.1",
     "@deepseek-ai/dsh-credentials": "0.2.1-alpha.1",
-    "@deepseek-ai/dsh-host-webserver": "0.2.1-alpha.1",
-    "@deepseek-ai/dsh-typert-protocol": "0.2.1-alpha.1",
-    "@deepseek-ai/schemastery": "~3.18.5-alpha.1",
+    "@deepseek-ai/dsh-typert-protocol": "0.2.1-alpha.1"
+  },
+  "dependencies": {
     "ws": "^8.18.0",
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@deepseek-ai/cordis": "~4.0.5-alpha.1",
+    "@deepseek-ai/dsh-credentials": "0.2.1-alpha.1",
+    "@deepseek-ai/dsh-typert-protocol": "0.2.1-alpha.1",
     "@types/node": "^22.10.1",
     "@types/ws": "^8.5.13",
     "esbuild": "^0.25.0",
