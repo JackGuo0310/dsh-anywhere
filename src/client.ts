@@ -10,6 +10,9 @@ type ClientContext = {
     register: (options: { name: string, id: string, order?: number, label?: () => string, inject?: () => unknown }, component: unknown) => (() => void) | void
   }
   locale: { bind: (namespace: string) => Translator }
+  host: { call: HostCall }
+  styles?: { insert: (css: string) => (() => void) | void }
+  effect?: (callback: () => void | (() => void)) => void
 }
 
 type ReactLike = {
@@ -71,17 +74,22 @@ function SettingsSection(props: { t: Translator, call: HostCall, React: ReactLik
   )
 }
 
-export function apply(ctx: ClientContext, runtime: { React: ReactLike, host: { call: HostCall }, styles?: { insert: (css: string) => (() => void) | void } }): void {
-  const { React, host, styles } = runtime
-  if (styles) styles.insert(css)
-  const t = ctx.locale.bind('dsh-remote-access')
-  ctx.slots.inject('settings.section', () => ctx.slots.register({
-    name: 'settings.section',
-    id: sectionId,
-    order: 80,
-    label: () => t('title'),
-    inject: () => ({ t, call: host.call, React }),
-  }, SettingsSection))
+export function createClientModule(React: ReactLike) {
+  return {
+    inject: ['slots', 'locale'],
+    apply(ctx: ClientContext): void {
+      const disposeStyles = ctx.styles?.insert(css)
+      if (disposeStyles && ctx.effect) ctx.effect(() => disposeStyles)
+      const t = ctx.locale.bind('dsh-remote-access')
+      ctx.slots.inject('settings.section', () => ctx.slots.register({
+        name: 'settings.section',
+        id: sectionId,
+        order: 80,
+        label: () => t('title'),
+        inject: () => ({ t, call: (method: string, args?: unknown) => ctx.host.call(`dshRemoteAccess.${method}`, args), React }),
+      }, SettingsSection))
+    },
+  }
 }
 
-export const clientModule = { packageId, sectionId }
+export const clientModule = { packageId, sectionId, css }
