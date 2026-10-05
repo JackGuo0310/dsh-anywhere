@@ -30,7 +30,7 @@
 
 ## 版本兼容性
 
-当前 `v0.1.4` 锁定 DeepSeek Harness `0.2.1-alpha.1` 运行时：
+当前 `v0.1.5` 锁定 DeepSeek Harness `0.2.1-alpha.1` 运行时：
 
 - `@deepseek-ai/cordis`：`~4.0.5-alpha.1`
 - `@deepseek-ai/dsh-credentials`：`0.2.1-alpha.1`
@@ -40,17 +40,17 @@
 
 ## 安装（Git tag）
 
-`v0.1.4` 尚未发布到 npm。可在目标机器使用 Git tag 安装：
+`v0.1.5` 尚未发布到 npm。可在目标机器使用 Git tag 安装：
 
 ```powershell
 # dsh 会将 bundle 安装到指定 profile；按你的实际 profile 名替换 web。
-dsh plugin --profile web add https://github.com/JackGuo0310/dsh-anywhere.git#v0.1.4
+dsh plugin --profile web add https://github.com/JackGuo0310/dsh-anywhere.git#v0.1.5
 ```
 
 也可先克隆该 tag 并从本地目录安装：
 
 ```powershell
-git clone --branch v0.1.4 --depth 1 https://github.com/JackGuo0310/dsh-anywhere.git
+git clone --branch v0.1.5 --depth 1 https://github.com/JackGuo0310/dsh-anywhere.git
 dsh plugin --profile web add .\dsh-anywhere
 ```
 
@@ -83,14 +83,14 @@ npm test
 
 ## 平台验证
 
-- **Windows**：在 Windows Node 环境执行了 `npm run check`、`npm run build` 与 `npm test`，14/14 测试通过。
+- **Windows**：在 Windows Node 环境执行了 `npm run check`、`npm run build` 与 `npm test`，18/18 测试通过。
 - **Linux**：代码只依赖 Node 22 的跨平台模块；`spawn(..., { windowsHide: true })` 在 Linux 被 Node 忽略。尚未在真实 Linux host 上运行集成测试，发布前应执行同一命令并测试 `frpc` 生命周期。
-- 未在活动 DSH profile 中安装，因此未对真实 DSH 浏览器入口做端到端验证；这是避免开发期暴露/影响本体的刻意限制。
+- 已由用户在真实 `web` profile 中安装并验证：客户端模块可正常启动，设置页可见，状态与网络诊断 RPC 可用。
 
 ## 已知限制
 
 - DSH 当前 Webserver 的 SPA fallback 不能由插件截获；安全设计因此使用独立网关端口，而不是劫持原 DSH listener。
-- 设置页客户端产物采用 DSH Module Loader，并通过 `dshRemoteAccess` Typert RPC 调用状态、网络发现、Tailscale 检测、会话撤销与隧道操作；由于本开发会话不得安装插件，未在活动 profile 中进行真实页面端到端验证。
+- 设置页客户端产物采用 DSH Module Loader，并通过 `dshRemoteAccess` Typert RPC 调用状态、网络发现、Tailscale 检测、会话撤销与隧道操作；已在真实 `web` profile 中验证客户端启动和设置页 RPC。
 - 公网 TLS、FRP 服务端、防火墙、DNS、Tailscale ACL 属于部署者责任。
 
 ## 许可证与来源
