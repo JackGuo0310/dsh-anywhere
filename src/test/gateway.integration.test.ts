@@ -66,6 +66,10 @@ test('gateway authenticates then proxies HTTP and enforces CSRF logout', async (
     const proxied = await fetch(`${base}/app?x=1`, { headers: { cookie } })
     assert.equal(proxied.status, 200)
     assert.deepEqual(await proxied.json(), { path: '/app?x=1', host: `127.0.0.1:${upstreamPort}` })
+    const unsafeProxy = await fetch(`${base}/app`, { method: 'POST', headers: { cookie, origin: base } })
+    assert.equal(unsafeProxy.status, 403)
+    const safeProxy = await fetch(`${base}/app`, { method: 'POST', headers: { cookie, origin: base, 'x-csrf-token': csrfToken } })
+    assert.equal(safeProxy.status, 200)
 
     const badLogout = await fetch(`${base}/_dsh_remote/logout`, { method: 'POST', headers: { cookie, origin: base } })
     assert.equal(badLogout.status, 403)
@@ -92,7 +96,7 @@ test('gateway bridges authenticated WebSocket traffic', async () => {
   const base = `http://127.0.0.1:${gatewayPort}`
   try {
     const { cookie } = await login(base)
-    const socket = await openSocket(`ws://127.0.0.1:${gatewayPort}/socket`, { cookie })
+    const socket = await openSocket(`ws://127.0.0.1:${gatewayPort}/socket`, { cookie, origin: base })
     const echoed = await new Promise<string>((resolve, reject) => {
       socket.once('message', (message) => resolve(message.toString()))
       socket.once('error', reject)

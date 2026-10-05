@@ -99,11 +99,12 @@ export class RemoteGateway {
       return this.json(res, 204, {})
     }
     if (!this.auth.requireSession(req)) return this.json(res, 401, { error: 'Login required.' })
+    if (!this.auth.requireCsrf(req)) return this.json(res, 403, { error: 'CSRF check failed.' })
     proxyHttp(req, res, this.config.target)
   }
 
   private handleUpgrade(req: IncomingMessage, socket: import('node:stream').Duplex, head: Buffer): void {
-    if (!hostAllowed(req, this.allowedAuthorities, this.config.trustedProxyCidrs) || !this.auth.requireSession(req)) {
+    if (!hostAllowed(req, this.allowedAuthorities, this.config.trustedProxyCidrs) || !originAllowed(req, this.allowedAuthorities, this.config.trustedProxyCidrs) || !this.auth.requireSession(req)) {
       socket.write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n')
       socket.destroy()
       return
