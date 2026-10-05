@@ -18,7 +18,7 @@ const P = 1
 export async function hashPassword(password: string): Promise<string> {
   if (password.length < 12) throw new Error('Administrator password must contain at least 12 characters.')
   const salt = randomBytes(16)
-  const derived = await scrypt(password, salt, KEY_LENGTH, { N, r: R, p: P, maxmem: 128 * N * R })
+  const derived = await scrypt(password, salt, KEY_LENGTH, { N, r: R, p: P, maxmem: 256 * N * R })
   return `scrypt$v1$${N}$${R}$${P}$${salt.toString('base64url')}$${derived.toString('base64url')}`
 }
 
@@ -28,7 +28,7 @@ export async function verifyPassword(password: string, encoded: string): Promise
   const salt = Buffer.from(saltText, 'base64url')
   const expected = Buffer.from(hashText, 'base64url')
   const derived = await scrypt(password, salt, expected.length, {
-    N: Number(n), r: Number(r), p: Number(p), maxmem: 128 * Number(n) * Number(r)
+    N: Number(n), r: Number(r), p: Number(p), maxmem: 256 * Number(n) * Number(r)
   })
   return derived.length === expected.length && timingSafeEqual(derived, expected)
 }
