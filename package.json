@@ -1,6 +1,6 @@
 {
   "name": "@dsh-community/dsh-remote-access",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Authenticated remote-access gateway for the DeepSeek Harness Web GUI",
   "type": "module",
   "private": false,
@@ -36,6 +36,7 @@
     }
   },
   "scripts": {
+    "prepare": "npm run build",
     "build": "tsc -p tsconfig.json && npm run build:client",
     "build:client": "esbuild src/client-entry.ts --bundle --format=iife --platform=browser --target=es2022 --outfile=dist/client.js --external:react",
     "check": "tsc -p tsconfig.json --noEmit",
