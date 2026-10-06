@@ -37,6 +37,7 @@ import { FrpTunnelProvider } from './tunnel/frp.js';
 import { CustomCommandTunnelProvider } from './tunnel/custom-command.js';
 import { RemoteGateway } from './gateway/remote-gateway.js';
 import { detectTailscale } from './network/tailscale.js';
+import { hashPassword } from './security/password.js';
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol';
 function redactConfig(config) {
     return {
@@ -146,18 +147,23 @@ let RemoteAccessService = (() => {
             return { id: this.tunnel.id, ...(await this.tunnel.restart()) };
         }
         async changePassword(request) {
-            if (!this.gateway)
-                throw new Error('Gateway is not running.');
             if (!this.config.adminPasswordSecretRef)
                 throw new Error('Administrator password credential reference is not configured.');
             if (!request || typeof request.newPassword !== 'string')
                 throw new Error('A new administrator password is required.');
-            const initializing = !this.gateway.passwordRecord();
+            const storedHash = await this.loadPasswordHash();
+            const runtimeHash = this.gateway?.passwordRecord();
+            const initializing = !storedHash && !runtimeHash;
+            if (!initializing && !this.gateway)
+                throw new Error('Gateway is not running. Start it before changing the administrator password.');
             if (!initializing && typeof request.currentPassword !== 'string')
                 throw new Error('The current administrator password is required.');
-            const nextHash = initializing
-                ? await this.gateway.bootstrapAdmin(request.newPassword)
-                : await this.gateway.changeAdminPassword(request.currentPassword, request.newPassword);
+            if (initializing) {
+                const nextHash = await hashPassword(request.newPassword);
+                await this.credentials().set(this.config.adminPasswordSecretRef, nextHash);
+                return { changed: true, initialized: true, sessionsRevoked: false };
+            }
+            const nextHash = await this.gateway.changeAdminPassword(request.currentPassword, request.newPassword);
             try {
                 await this.credentials().set(this.config.adminPasswordSecretRef, nextHash);
             }
@@ -166,7 +172,7 @@ let RemoteAccessService = (() => {
                 await this.stop();
                 throw error;
             }
-            return { changed: true, initialized: initializing, sessionsRevoked: !initializing };
+            return { changed: true, initialized: false, sessionsRevoked: true };
         }
         async revokeAllSessions() {
             if (!this.gateway)
