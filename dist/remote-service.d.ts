@@ -5,12 +5,9 @@ type PasswordChangeRequest = {
     currentPassword?: unknown;
     newPassword?: unknown;
 };
-type CommonConfigRequest = {
-    enabled?: unknown;
-    mode?: unknown;
-    listenHost?: unknown;
-    listenPort?: unknown;
-    targetPort?: unknown;
+type FullConfigRequest = {
+    config?: unknown;
+    secrets?: unknown;
 };
 /** Host RPC surface. It never returns passwords, password hashes, tokens, or credential references. */
 export declare class RemoteAccessService extends TypertRemoteService {
@@ -21,7 +18,8 @@ export declare class RemoteAccessService extends TypertRemoteService {
     start(): Promise<void>;
     stop(): Promise<void>;
     status(): Promise<unknown>;
-    saveCommonConfig(request: CommonConfigRequest): Promise<unknown>;
+    saveConfig(request: FullConfigRequest): Promise<unknown>;
+    secretStatus(): Promise<unknown>;
     discoverNetwork(): Promise<unknown>;
     detectTailscale(): Promise<unknown>;
     startTunnel(): Promise<unknown>;

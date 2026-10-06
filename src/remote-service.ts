@@ -11,11 +11,12 @@ import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 
 type Credentials = {
   resolve(ref: string): Promise<{ value: string } | undefined>
+  describe(ref: string): Promise<{ configured: boolean, source?: string, writable: boolean }>
   set(ref: string, value: string): Promise<void>
 }
 
 type PasswordChangeRequest = { currentPassword?: unknown, newPassword?: unknown }
-type CommonConfigRequest = { enabled?: unknown, mode?: unknown, listenHost?: unknown, listenPort?: unknown, targetPort?: unknown }
+type FullConfigRequest = { config?: unknown, secrets?: unknown }
 type ConfigEditorEntry = { id?: string, name?: string }
 type ConfigEditor = {
   entries(): ConfigEditorEntry[]
@@ -24,15 +25,19 @@ type ConfigEditor = {
 
 function redactConfig(config: RemoteAccessConfig) {
   return {
-    enabled: config.enabled,
-    mode: config.mode,
-    listenHost: config.listenHost,
-    listenPort: config.listenPort,
-    target: config.target,
-    publicBaseUrl: config.publicBaseUrl,
-    adminConfigured: config.adminConfigured,
+    ...config,
+    frp: config.frp ? { ...config.frp } : undefined,
     tunnel: config.frp ? 'frp' : config.customCommandEnabled ? 'custom-command' : undefined,
   }
+}
+
+function objectOf(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Configuration must be an object.')
+  return value as Record<string, unknown>
+}
+
+function optionalSecret(value: unknown): string | undefined {
+  return typeof value === 'string' && value.length ? value : undefined
 }
 
 function lanAddresses(): string[] {
@@ -88,36 +93,36 @@ export class RemoteAccessService extends TypertRemoteService {
     }
   }
 
-  @Remote('saveCommonConfig')
-  async saveCommonConfig(request: CommonConfigRequest): Promise<unknown> {
-    if (!request || typeof request.enabled !== 'boolean') throw new Error('Gateway enabled state is required.')
-    if (!['loopback', 'lan', 'tailscale'].includes(String(request.mode))) throw new Error('Invalid access mode.')
-    if (typeof request.listenHost !== 'string') throw new Error('Listen host is required.')
-    const listenPort = Number(request.listenPort)
-    const targetPort = Number(request.targetPort)
-    const next = assertSafeConfig({
-      ...this.config,
-      enabled: request.enabled,
-      mode: request.mode,
-      listenHost: request.listenHost,
-      listenPort,
-      target: { ...this.config.target, port: targetPort },
-      adminConfigured: !!(await this.loadPasswordHash()),
-    })
+  @Remote('saveConfig')
+  async saveConfig(request: FullConfigRequest): Promise<unknown> {
+    const submitted = objectOf(request?.config)
+    const secrets = objectOf(request?.secrets ?? {})
+    const administratorConfigured = !!(await this.loadPasswordHash())
+    const next = assertSafeConfig({ ...submitted, version: this.config.version, adminConfigured: administratorConfigured })
+    const secretWrites: Array<[string | undefined, string | undefined]> = [
+      [next.frp?.tokenSecretRef, optionalSecret(secrets.frpToken)],
+      [next.frp?.stcpSecretRef, optionalSecret(secrets.stcpSecret)],
+    ]
+    for (const [ref, value] of secretWrites) if (ref && value) await this.credentials().set(ref, value)
     const editor = this.ctx.get('configEditor') as ConfigEditor | undefined
     if (!editor) throw new Error('DSH configuration editor is unavailable.')
     const entry = editor.entries().find((item) => item.id === 'dsh-remote-access' || item.name === '@dsh-community/dsh-remote-access')
     if (!entry) throw new Error('Remote access configuration entry was not found.')
-    await editor.edit(entry, (current) => ({
-      ...current,
-      enabled: next.enabled,
-      mode: next.mode,
-      listenHost: next.listenHost,
-      listenPort: next.listenPort,
-      target: next.target,
-      adminConfigured: next.adminConfigured,
-    }))
-    return { saved: true }
+    await editor.edit(entry, () => ({ ...next }))
+    return { saved: true, secretsUpdated: secretWrites.filter(([ref, value]) => ref && value).length }
+  }
+
+  @Remote('secretStatus')
+  async secretStatus(): Promise<unknown> {
+    const credentials = this.credentials()
+    const refs = {
+      administrator: this.config.adminPasswordSecretRef,
+      frpToken: this.config.frp?.tokenSecretRef,
+      stcpSecret: this.config.frp?.stcpSecretRef,
+    }
+    const result: Record<string, unknown> = {}
+    for (const [key, ref] of Object.entries(refs)) result[key] = ref ? await credentials.describe(ref) : { configured: false, writable: true }
+    return result
   }
 
   @Remote('discoverNetwork')
