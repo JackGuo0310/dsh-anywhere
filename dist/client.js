@@ -92,7 +92,19 @@
       "customCommand": "Command executable",
       "customArgs": "Arguments (one per line)",
       "saveAndApply": "Save and apply",
-      "configurationSaved": "Configuration saved and applied."
+      "configurationSaved": "Configuration saved and applied.",
+      "invalidPort": "Ports must be integers from 1 through 65535.",
+      "invalidSessionTtl": "Session lifetime must be from 5 through 43200 minutes.",
+      "invalidBodyLimit": "Request body limit must be from 1024 through 1073741824 bytes.",
+      "hostRequired": "Listen address and DSH target host are required.",
+      "passwordFirst": "Set the administrator password before saving access settings.",
+      "publicUrlHttpsRequired": "Public tunnel mode requires an HTTPS public URL.",
+      "tunnelProviderRequired": "Public tunnel mode requires a tunnel provider.",
+      "frpRequired": "FRP requires the frpc path and server address.",
+      "frpTokenRefRequired": "Token authentication requires a credential reference.",
+      "frpDomainRequired": "HTTP/HTTPS FRP requires a public domain.",
+      "stcpRefRequired": "STCP requires a secret credential reference.",
+      "customCommandRequired": "A custom tunnel requires a command executable."
     },
     "zh": {
       "title": "\u8FDC\u7A0B\u8BBF\u95EE\u7F51\u5173",
@@ -183,7 +195,19 @@
       "customCommand": "\u547D\u4EE4\u7A0B\u5E8F",
       "customArgs": "\u547D\u4EE4\u53C2\u6570\uFF08\u6BCF\u884C\u4E00\u9879\uFF09",
       "saveAndApply": "\u4FDD\u5B58\u5E76\u5E94\u7528",
-      "configurationSaved": "\u914D\u7F6E\u5DF2\u4FDD\u5B58\u5E76\u5E94\u7528\u3002"
+      "configurationSaved": "\u914D\u7F6E\u5DF2\u4FDD\u5B58\u5E76\u5E94\u7528\u3002",
+      "invalidPort": "\u7AEF\u53E3\u5FC5\u987B\u662F 1\u201365535 \u4E4B\u95F4\u7684\u6574\u6570\u3002",
+      "invalidSessionTtl": "\u4F1A\u8BDD\u6709\u6548\u671F\u5FC5\u987B\u662F 5\u201343200 \u5206\u949F\u3002",
+      "invalidBodyLimit": "\u8BF7\u6C42\u4F53\u4E0A\u9650\u5FC5\u987B\u662F 1024\u20131073741824 \u5B57\u8282\u3002",
+      "hostRequired": "\u76D1\u542C\u5730\u5740\u548C DSH \u76EE\u6807\u4E3B\u673A\u4E0D\u80FD\u4E3A\u7A7A\u3002",
+      "passwordFirst": "\u8BF7\u5148\u8BBE\u7F6E\u7BA1\u7406\u5458\u5BC6\u7801\uFF0C\u518D\u4FDD\u5B58\u8BBF\u95EE\u914D\u7F6E\u3002",
+      "publicUrlHttpsRequired": "\u516C\u7F51\u96A7\u9053\u6A21\u5F0F\u5FC5\u987B\u586B\u5199 HTTPS \u516C\u7F51\u5730\u5740\u3002",
+      "tunnelProviderRequired": "\u516C\u7F51\u96A7\u9053\u6A21\u5F0F\u5FC5\u987B\u9009\u62E9\u96A7\u9053\u63D0\u4F9B\u5546\u3002",
+      "frpRequired": "FRP \u9700\u8981\u586B\u5199 frpc \u8DEF\u5F84\u548C\u670D\u52A1\u5668\u5730\u5740\u3002",
+      "frpTokenRefRequired": "Token \u8BA4\u8BC1\u9700\u8981\u586B\u5199\u51ED\u636E\u5F15\u7528\u3002",
+      "frpDomainRequired": "HTTP/HTTPS FRP \u9700\u8981\u586B\u5199\u516C\u7F51\u57DF\u540D\u3002",
+      "stcpRefRequired": "STCP \u9700\u8981\u586B\u5199\u5BC6\u94A5\u51ED\u636E\u5F15\u7528\u3002",
+      "customCommandRequired": "\u81EA\u5B9A\u4E49\u96A7\u9053\u9700\u8981\u586B\u5199\u547D\u4EE4\u7A0B\u5E8F\u3002"
     }
   };
 
@@ -228,6 +252,24 @@
   function text(value, fallback = "") {
     return typeof value === "string" ? value : fallback;
   }
+  function validateForm(form, administratorConfigured, t) {
+    const portKeys = ["listenPort", "targetPort", ...form.tunnelProvider === "frp" ? ["frpServerPort"] : []];
+    if (portKeys.some((key) => !Number.isInteger(Number(form[key])) || Number(form[key]) < 1 || Number(form[key]) > 65535)) return t("invalidPort");
+    const ttl = Number(form.sessionTtlMinutes);
+    if (!Number.isInteger(ttl) || ttl < 5 || ttl > 43200) return t("invalidSessionTtl");
+    const body = Number(form.maxRequestBodyBytes);
+    if (!Number.isInteger(body) || body < 1024 || body > 1073741824) return t("invalidBodyLimit");
+    if (!String(form.listenHost).trim() || !String(form.targetHost).trim()) return t("hostRequired");
+    if (!administratorConfigured) return t("passwordFirst");
+    if (form.mode === "tunnel" && !String(form.publicBaseUrl).startsWith("https://")) return t("publicUrlHttpsRequired");
+    if (form.mode === "tunnel" && form.tunnelProvider === "none") return t("tunnelProviderRequired");
+    if (form.tunnelProvider === "frp" && (!form.frpExecutablePath || !form.frpServerAddress)) return t("frpRequired");
+    if (form.tunnelProvider === "frp" && form.frpAuthMethod === "token" && !form.frpTokenSecretRef) return t("frpTokenRefRequired");
+    if (form.tunnelProvider === "frp" && form.frpTransport !== "stcp" && !form.frpCustomDomain) return t("frpDomainRequired");
+    if (form.tunnelProvider === "frp" && form.frpTransport === "stcp" && !form.frpStcpSecretRef) return t("stcpRefRequired");
+    if (form.tunnelProvider === "custom" && !String(form.customCommand).trim()) return t("customCommandRequired");
+    return void 0;
+  }
   function SettingsSection({ t, call, React }) {
     const h = React.createElement;
     const [status, setStatus] = React.useState({});
@@ -268,6 +310,11 @@
       void invoke("status");
     }, [invoke]);
     const save = React.useCallback(async () => {
+      const validationError = validateForm(form, !!status.administratorConfigured, t);
+      if (validationError) {
+        setFeedback({ tone: "error", message: validationError });
+        return;
+      }
       setBusy("saveConfig");
       setFeedback(void 0);
       try {

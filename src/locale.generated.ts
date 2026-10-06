@@ -93,7 +93,19 @@ export const dictionaries: Record<string, Record<string, string>> = {
     "customCommand": "Command executable",
     "customArgs": "Arguments (one per line)",
     "saveAndApply": "Save and apply",
-    "configurationSaved": "Configuration saved and applied."
+    "configurationSaved": "Configuration saved and applied.",
+    "invalidPort": "Ports must be integers from 1 through 65535.",
+    "invalidSessionTtl": "Session lifetime must be from 5 through 43200 minutes.",
+    "invalidBodyLimit": "Request body limit must be from 1024 through 1073741824 bytes.",
+    "hostRequired": "Listen address and DSH target host are required.",
+    "passwordFirst": "Set the administrator password before saving access settings.",
+    "publicUrlHttpsRequired": "Public tunnel mode requires an HTTPS public URL.",
+    "tunnelProviderRequired": "Public tunnel mode requires a tunnel provider.",
+    "frpRequired": "FRP requires the frpc path and server address.",
+    "frpTokenRefRequired": "Token authentication requires a credential reference.",
+    "frpDomainRequired": "HTTP/HTTPS FRP requires a public domain.",
+    "stcpRefRequired": "STCP requires a secret credential reference.",
+    "customCommandRequired": "A custom tunnel requires a command executable."
   },
   "zh": {
     "title": "远程访问网关",
@@ -184,6 +196,18 @@ export const dictionaries: Record<string, Record<string, string>> = {
     "customCommand": "命令程序",
     "customArgs": "命令参数（每行一项）",
     "saveAndApply": "保存并应用",
-    "configurationSaved": "配置已保存并应用。"
+    "configurationSaved": "配置已保存并应用。",
+    "invalidPort": "端口必须是 1–65535 之间的整数。",
+    "invalidSessionTtl": "会话有效期必须是 5–43200 分钟。",
+    "invalidBodyLimit": "请求体上限必须是 1024–1073741824 字节。",
+    "hostRequired": "监听地址和 DSH 目标主机不能为空。",
+    "passwordFirst": "请先设置管理员密码，再保存访问配置。",
+    "publicUrlHttpsRequired": "公网隧道模式必须填写 HTTPS 公网地址。",
+    "tunnelProviderRequired": "公网隧道模式必须选择隧道提供商。",
+    "frpRequired": "FRP 需要填写 frpc 路径和服务器地址。",
+    "frpTokenRefRequired": "Token 认证需要填写凭据引用。",
+    "frpDomainRequired": "HTTP/HTTPS FRP 需要填写公网域名。",
+    "stcpRefRequired": "STCP 需要填写密钥凭据引用。",
+    "customCommandRequired": "自定义隧道需要填写命令程序。"
   }
 }

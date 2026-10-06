@@ -10,6 +10,36 @@ const css = `
 `;
 function objectOf(value) { return value && typeof value === 'object' ? value : {}; }
 function text(value, fallback = '') { return typeof value === 'string' ? value : fallback; }
+function validateForm(form, administratorConfigured, t) {
+    const portKeys = ['listenPort', 'targetPort', ...(form.tunnelProvider === 'frp' ? ['frpServerPort'] : [])];
+    if (portKeys.some((key) => !Number.isInteger(Number(form[key])) || Number(form[key]) < 1 || Number(form[key]) > 65535))
+        return t('invalidPort');
+    const ttl = Number(form.sessionTtlMinutes);
+    if (!Number.isInteger(ttl) || ttl < 5 || ttl > 43200)
+        return t('invalidSessionTtl');
+    const body = Number(form.maxRequestBodyBytes);
+    if (!Number.isInteger(body) || body < 1024 || body > 1073741824)
+        return t('invalidBodyLimit');
+    if (!String(form.listenHost).trim() || !String(form.targetHost).trim())
+        return t('hostRequired');
+    if (!administratorConfigured)
+        return t('passwordFirst');
+    if (form.mode === 'tunnel' && !String(form.publicBaseUrl).startsWith('https://'))
+        return t('publicUrlHttpsRequired');
+    if (form.mode === 'tunnel' && form.tunnelProvider === 'none')
+        return t('tunnelProviderRequired');
+    if (form.tunnelProvider === 'frp' && (!form.frpExecutablePath || !form.frpServerAddress))
+        return t('frpRequired');
+    if (form.tunnelProvider === 'frp' && form.frpAuthMethod === 'token' && !form.frpTokenSecretRef)
+        return t('frpTokenRefRequired');
+    if (form.tunnelProvider === 'frp' && form.frpTransport !== 'stcp' && !form.frpCustomDomain)
+        return t('frpDomainRequired');
+    if (form.tunnelProvider === 'frp' && form.frpTransport === 'stcp' && !form.frpStcpSecretRef)
+        return t('stcpRefRequired');
+    if (form.tunnelProvider === 'custom' && !String(form.customCommand).trim())
+        return t('customCommandRequired');
+    return undefined;
+}
 function SettingsSection({ t, call, React }) {
     const h = React.createElement;
     const [status, setStatus] = React.useState({});
@@ -48,7 +78,10 @@ function SettingsSection({ t, call, React }) {
         setBusy('');
     } }, [call, t]);
     React.useEffect(() => { void invoke('status'); }, [invoke]);
-    const save = React.useCallback(async () => { setBusy('saveConfig'); setFeedback(undefined); try {
+    const save = React.useCallback(async () => { const validationError = validateForm(form, !!status.administratorConfigured, t); if (validationError) {
+        setFeedback({ tone: 'error', message: validationError });
+        return;
+    } setBusy('saveConfig'); setFeedback(undefined); try {
         const tunnelProvider = String(form.tunnelProvider);
         const frp = tunnelProvider === 'frp' ? { executablePath: form.frpExecutablePath, serverAddress: form.frpServerAddress, serverPort: Number(form.frpServerPort), authMethod: form.frpAuthMethod, tokenSecretRef: form.frpAuthMethod === 'token' ? form.frpTokenSecretRef : undefined, stcpSecretRef: form.frpTransport === 'stcp' ? form.frpStcpSecretRef : undefined, transport: form.frpTransport, customDomain: form.frpTransport === 'stcp' ? undefined : form.frpCustomDomain, tlsEnabled: form.frpTlsEnabled, startWithDsh: form.frpStartWithDsh } : undefined;
         const config = { enabled: form.enabled, mode: form.mode, listenHost: form.listenHost, listenPort: Number(form.listenPort), target: { host: form.targetHost, port: Number(form.targetPort), protocol: form.targetProtocol }, publicBaseUrl: form.publicBaseUrl || undefined, trustedProxyCidrs: String(form.trustedProxyCidrs).split(/\r?\n|,/).map((v) => v.trim()).filter(Boolean), sessionTtlMinutes: Number(form.sessionTtlMinutes), maxRequestBodyBytes: Number(form.maxRequestBodyBytes), adminPasswordSecretRef: form.adminPasswordSecretRef, frp, customCommandEnabled: tunnelProvider === 'custom', customCommand: tunnelProvider === 'custom' ? { command: form.customCommand, args: String(form.customArgs).split(/\r?\n/).filter(Boolean) } : undefined };

@@ -92,6 +92,18 @@
     "customCommand": "Command executable",
     "customArgs": "Arguments (one per line)",
     "saveAndApply": "Save and apply",
-    "configurationSaved": "Configuration saved and applied."
+    "configurationSaved": "Configuration saved and applied.",
+    "invalidPort": "Ports must be integers from 1 through 65535.",
+    "invalidSessionTtl": "Session lifetime must be from 5 through 43200 minutes.",
+    "invalidBodyLimit": "Request body limit must be from 1024 through 1073741824 bytes.",
+    "hostRequired": "Listen address and DSH target host are required.",
+    "passwordFirst": "Set the administrator password before saving access settings.",
+    "publicUrlHttpsRequired": "Public tunnel mode requires an HTTPS public URL.",
+    "tunnelProviderRequired": "Public tunnel mode requires a tunnel provider.",
+    "frpRequired": "FRP requires the frpc path and server address.",
+    "frpTokenRefRequired": "Token authentication requires a credential reference.",
+    "frpDomainRequired": "HTTP/HTTPS FRP requires a public domain.",
+    "stcpRefRequired": "STCP requires a secret credential reference.",
+    "customCommandRequired": "A custom tunnel requires a command executable."
   }
 }

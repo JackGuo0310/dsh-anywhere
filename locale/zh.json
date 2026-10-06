@@ -92,6 +92,18 @@
     "customCommand": "命令程序",
     "customArgs": "命令参数（每行一项）",
     "saveAndApply": "保存并应用",
-    "configurationSaved": "配置已保存并应用。"
+    "configurationSaved": "配置已保存并应用。",
+    "invalidPort": "端口必须是 1–65535 之间的整数。",
+    "invalidSessionTtl": "会话有效期必须是 5–43200 分钟。",
+    "invalidBodyLimit": "请求体上限必须是 1024–1073741824 字节。",
+    "hostRequired": "监听地址和 DSH 目标主机不能为空。",
+    "passwordFirst": "请先设置管理员密码，再保存访问配置。",
+    "publicUrlHttpsRequired": "公网隧道模式必须填写 HTTPS 公网地址。",
+    "tunnelProviderRequired": "公网隧道模式必须选择隧道提供商。",
+    "frpRequired": "FRP 需要填写 frpc 路径和服务器地址。",
+    "frpTokenRefRequired": "Token 认证需要填写凭据引用。",
+    "frpDomainRequired": "HTTP/HTTPS FRP 需要填写公网域名。",
+    "stcpRefRequired": "STCP 需要填写密钥凭据引用。",
+    "customCommandRequired": "自定义隧道需要填写命令程序。"
   }
 }
