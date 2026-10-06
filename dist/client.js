@@ -48,8 +48,18 @@
       "passwordTooShort": "The new password must be at least 10 characters.",
       "passwordMismatch": "New passwords do not match.",
       "passwordChanged": "Password changed. All remote sessions were revoked.",
-      "configurationTitle": "Advanced configuration",
-      "configurationBody": "Use \u201COpen configuration file\u201D in the top-right corner for listener, credential-reference, and tunnel settings."
+      "configurationTitle": "Access configuration",
+      "configurationBody": "Saving applies these settings through DSH configuration. LAN and Tailscale modes listen on all network interfaces.",
+      "enableGateway": "Enable access gateway",
+      "accessMode": "Access mode",
+      "modeLoopback": "This computer only",
+      "modeLan": "Local network",
+      "modeTailscale": "Tailscale",
+      "listenHostField": "Listen address",
+      "gatewayPort": "Gateway port",
+      "targetPort": "DSH original port",
+      "saveAndApply": "Save and apply",
+      "configurationSaved": "Configuration saved and applied."
     },
     "zh": {
       "title": "\u8FDC\u7A0B\u8BBF\u95EE\u7F51\u5173",
@@ -96,8 +106,18 @@
       "passwordTooShort": "\u65B0\u5BC6\u7801\u81F3\u5C11\u9700\u8981 10 \u4E2A\u5B57\u7B26\u3002",
       "passwordMismatch": "\u4E24\u6B21\u8F93\u5165\u7684\u65B0\u5BC6\u7801\u4E0D\u4E00\u81F4\u3002",
       "passwordChanged": "\u5BC6\u7801\u5DF2\u4FEE\u6539\uFF0C\u6240\u6709\u8FDC\u7A0B\u4F1A\u8BDD\u5DF2\u64A4\u9500\u3002",
-      "configurationTitle": "\u9AD8\u7EA7\u914D\u7F6E",
-      "configurationBody": "\u76D1\u542C\u5730\u5740\u3001\u51ED\u636E\u5F15\u7528\u548C\u96A7\u9053\u53C2\u6570\u8BF7\u901A\u8FC7\u53F3\u4E0A\u89D2\u201C\u6253\u5F00\u914D\u7F6E\u6587\u4EF6\u201D\u8FDB\u884C\u8BBE\u7F6E\u3002"
+      "configurationTitle": "\u8BBF\u95EE\u914D\u7F6E",
+      "configurationBody": "\u4FDD\u5B58\u540E\u4F1A\u901A\u8FC7 DSH \u914D\u7F6E\u7CFB\u7EDF\u81EA\u52A8\u5E94\u7528\u3002\u5C40\u57DF\u7F51\u4E0E Tailscale \u6A21\u5F0F\u5C06\u76D1\u542C\u6240\u6709\u7F51\u7EDC\u63A5\u53E3\u3002",
+      "enableGateway": "\u542F\u7528\u8BBF\u95EE\u7F51\u5173",
+      "accessMode": "\u8BBF\u95EE\u65B9\u5F0F",
+      "modeLoopback": "\u4EC5\u672C\u673A",
+      "modeLan": "\u5C40\u57DF\u7F51",
+      "modeTailscale": "Tailscale",
+      "listenHostField": "\u76D1\u542C\u5730\u5740",
+      "gatewayPort": "\u7F51\u5173\u7AEF\u53E3",
+      "targetPort": "DSH \u539F\u59CB\u7AEF\u53E3",
+      "saveAndApply": "\u4FDD\u5B58\u5E76\u5E94\u7528",
+      "configurationSaved": "\u914D\u7F6E\u5DF2\u4FDD\u5B58\u5E76\u5E94\u7528\u3002"
     }
   };
 
@@ -117,7 +137,7 @@
 .dsh-remote-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}.dsh-remote-button{min-height:44px;padding:0 14px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font:inherit;font-size:14px;cursor:pointer}
 .dsh-remote-button:hover{background:var(--dsw-alias-bg-layer-2)}.dsh-remote-button:focus-visible,.dsh-remote-fields input:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}.dsh-remote-button-primary{border-color:transparent;background:var(--dsw-alias-label-primary);color:var(--dsw-alias-bg-base)}.dsh-remote-button-primary:hover{opacity:.88}.dsh-remote-button:disabled{opacity:.5;cursor:wait}
 .dsh-remote-feedback{margin-top:12px;padding:10px 12px;border-radius:8px;background:var(--dsw-alias-bg-layer-2);font-size:14px}.dsh-remote-feedback[data-tone=success]{color:var(--dsw-alias-state-success-primary)}.dsh-remote-feedback[data-tone=error]{color:var(--dsw-alias-state-error-primary)}
-.dsh-remote-fields{display:grid;gap:14px;margin-top:16px}.dsh-remote-fields label{display:grid;gap:7px;font-size:14px}.dsh-remote-fields input{min-height:44px;padding:0 11px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font:inherit;outline:none}.dsh-remote-fields input:focus{border-color:var(--dsw-alias-brand-primary)}
+.dsh-remote-fields{display:grid;gap:14px;margin-top:16px}.dsh-remote-fields label{display:grid;gap:7px;font-size:14px}.dsh-remote-fields input{min-height:44px;padding:0 11px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font:inherit;outline:none}.dsh-remote-fields input:focus,.dsh-remote-fields select:focus{border-color:var(--dsw-alias-brand-primary)}.dsh-remote-fields select{min-height:44px;padding:0 11px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font:inherit}.dsh-remote-check{display:flex!important;grid-template-columns:none!important;align-items:center;gap:10px!important}.dsh-remote-check input{min-height:auto;width:18px;height:18px}
 @media(max-width:640px){.dsh-remote-status-grid{grid-template-columns:1fr}.dsh-remote-row:nth-last-child(2){border-bottom:1px solid var(--dsw-alias-border-l1)}}
 `;
   function objectOf(value) {
@@ -138,13 +158,27 @@
     const [currentPassword, setCurrentPassword] = React.useState("");
     const [newPassword, setNewPassword] = React.useState("");
     const [confirmPassword, setConfirmPassword] = React.useState("");
+    const [enabled, setEnabled] = React.useState(false);
+    const [mode, setMode] = React.useState("loopback");
+    const [listenHost, setListenHost] = React.useState("127.0.0.1");
+    const [listenPort, setListenPort] = React.useState("4173");
+    const [targetPort, setTargetPort] = React.useState("3080");
     const invoke = React.useCallback(async (method) => {
       setBusy(method);
       setFeedback(void 0);
       try {
         const result = await call(method);
         const value = objectOf(result);
-        if (method === "status") setGatewayStatus(value);
+        if (method === "status") {
+          setGatewayStatus(value);
+          const config = objectOf(value.configured);
+          const target = objectOf(config.target);
+          setEnabled(config.enabled === true);
+          setMode(textOf(config.mode, "loopback"));
+          setListenHost(textOf(config.listenHost, "127.0.0.1"));
+          setListenPort(String(config.listenPort ?? 4173));
+          setTargetPort(String(target.port ?? 3080));
+        }
         if (method === "discoverNetwork") {
           const addresses = Array.isArray(value.lanIpv4) ? value.lanIpv4.join("\u3001") : "";
           setFeedback({ tone: "success", message: addresses ? `${t("lanFound")} ${addresses}:${String(value.gatewayPort ?? "")}` : t("lanNotFound") });
@@ -195,6 +229,18 @@
         setBusy(void 0);
       }
     }, [call, confirmPassword, currentPassword, gatewayStatus?.administratorConfigured, newPassword, t]);
+    const saveCommonConfig = React.useCallback(async () => {
+      setBusy("saveCommonConfig");
+      setFeedback(void 0);
+      try {
+        await call("saveCommonConfig", { request: { enabled, mode, listenHost, listenPort: Number(listenPort), targetPort: Number(targetPort) } });
+        setFeedback({ tone: "success", message: t("configurationSaved") });
+      } catch (error) {
+        setFeedback({ tone: "error", message: error instanceof Error ? error.message : String(error) });
+      } finally {
+        setBusy(void 0);
+      }
+    }, [call, enabled, listenHost, listenPort, mode, t, targetPort]);
     const configured = objectOf(gatewayStatus?.configured);
     const tunnel = objectOf(gatewayStatus?.tunnel);
     const statusRows = [
@@ -249,7 +295,32 @@
         ),
         h("div", { className: "dsh-remote-actions" }, h("button", { className: "dsh-remote-button dsh-remote-button-primary", type: "button", disabled: !!busy || !!gatewayStatus?.administratorConfigured && !currentPassword || !newPassword || !confirmPassword, onClick: changePassword }, t(gatewayStatus?.administratorConfigured ? "changePassword" : "initializePassword")))
       ),
-      h("section", { className: "dsh-remote-card" }, h("h2", null, t("configurationTitle")), h("p", null, t("configurationBody")))
+      h(
+        "section",
+        { className: "dsh-remote-card" },
+        h("h2", null, t("configurationTitle")),
+        h("p", null, t("configurationBody")),
+        h(
+          "div",
+          { className: "dsh-remote-fields" },
+          h("label", { className: "dsh-remote-check" }, h("input", { type: "checkbox", checked: enabled, disabled: !!busy, onChange: (event) => setEnabled(event.target.checked) }), t("enableGateway")),
+          h("label", null, t("accessMode"), h(
+            "select",
+            { value: mode, disabled: !!busy, onChange: (event) => {
+              const value = event.target.value;
+              setMode(value);
+              setListenHost(value === "loopback" ? "127.0.0.1" : "0.0.0.0");
+            } },
+            h("option", { value: "loopback" }, t("modeLoopback")),
+            h("option", { value: "lan" }, t("modeLan")),
+            h("option", { value: "tailscale" }, t("modeTailscale"))
+          )),
+          h("label", null, t("listenHostField"), h("input", { value: listenHost, disabled: !!busy, onChange: (event) => setListenHost(event.target.value) })),
+          h("label", null, t("gatewayPort"), h("input", { type: "number", min: 1, max: 65535, value: listenPort, disabled: !!busy, onChange: (event) => setListenPort(event.target.value) })),
+          h("label", null, t("targetPort"), h("input", { type: "number", min: 1, max: 65535, value: targetPort, disabled: !!busy, onChange: (event) => setTargetPort(event.target.value) }))
+        ),
+        h("div", { className: "dsh-remote-actions" }, h("button", { className: "dsh-remote-button dsh-remote-button-primary", type: "button", disabled: !!busy || !gatewayStatus?.administratorConfigured, onClick: saveCommonConfig }, busy === "saveCommonConfig" ? t("working") : t("saveAndApply")))
+      )
     );
   }
   async function callRemoteHost(ctx, method, args = {}) {

@@ -1,9 +1,16 @@
-import type { RemoteAccessConfig } from './config.js';
+import { type RemoteAccessConfig } from './config.js';
 import type { Context } from '@deepseek-ai/cordis';
 import { TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol';
 type PasswordChangeRequest = {
     currentPassword?: unknown;
     newPassword?: unknown;
+};
+type CommonConfigRequest = {
+    enabled?: unknown;
+    mode?: unknown;
+    listenHost?: unknown;
+    listenPort?: unknown;
+    targetPort?: unknown;
 };
 /** Host RPC surface. It never returns passwords, password hashes, tokens, or credential references. */
 export declare class RemoteAccessService extends TypertRemoteService {
@@ -14,6 +21,7 @@ export declare class RemoteAccessService extends TypertRemoteService {
     start(): Promise<void>;
     stop(): Promise<void>;
     status(): Promise<unknown>;
+    saveCommonConfig(request: CommonConfigRequest): Promise<unknown>;
     discoverNetwork(): Promise<unknown>;
     detectTailscale(): Promise<unknown>;
     startTunnel(): Promise<unknown>;

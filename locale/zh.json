@@ -48,7 +48,17 @@
     "passwordTooShort": "新密码至少需要 10 个字符。",
     "passwordMismatch": "两次输入的新密码不一致。",
     "passwordChanged": "密码已修改，所有远程会话已撤销。",
-    "configurationTitle": "高级配置",
-    "configurationBody": "监听地址、凭据引用和隧道参数请通过右上角“打开配置文件”进行设置。"
+    "configurationTitle": "访问配置",
+    "configurationBody": "保存后会通过 DSH 配置系统自动应用。局域网与 Tailscale 模式将监听所有网络接口。",
+    "enableGateway": "启用访问网关",
+    "accessMode": "访问方式",
+    "modeLoopback": "仅本机",
+    "modeLan": "局域网",
+    "modeTailscale": "Tailscale",
+    "listenHostField": "监听地址",
+    "gatewayPort": "网关端口",
+    "targetPort": "DSH 原始端口",
+    "saveAndApply": "保存并应用",
+    "configurationSaved": "配置已保存并应用。"
   }
 }

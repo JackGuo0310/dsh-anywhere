@@ -47,12 +47,12 @@ export declare const configSchema: z.ZodObject<{
         port: z.ZodDefault<z.ZodNumber>;
         protocol: z.ZodDefault<z.ZodEnum<["http", "https"]>>;
     }, "strip", z.ZodTypeAny, {
-        host: string;
         port: number;
+        host: string;
         protocol: "http" | "https";
     }, {
-        host?: string | undefined;
         port?: number | undefined;
+        host?: string | undefined;
         protocol?: "http" | "https" | undefined;
     }>>;
     publicBaseUrl: z.ZodOptional<z.ZodString>;
@@ -107,16 +107,16 @@ export declare const configSchema: z.ZodObject<{
         args: string[];
     }>>;
 }, "strict", z.ZodTypeAny, {
+    enabled: boolean;
+    mode: "loopback" | "tunnel" | "lan" | "tailscale";
     listenHost: string;
     listenPort: number;
-    version: 1;
-    enabled: boolean;
-    mode: "tunnel" | "loopback" | "lan" | "tailscale";
     target: {
-        host: string;
         port: number;
+        host: string;
         protocol: "http" | "https";
     };
+    version: 1;
     trustedProxyCidrs: string[];
     sessionTtlMinutes: number;
     maxRequestBodyBytes: number;
@@ -141,8 +141,15 @@ export declare const configSchema: z.ZodObject<{
         args: string[];
     } | undefined;
 }, {
+    enabled?: boolean | undefined;
+    mode?: "loopback" | "tunnel" | "lan" | "tailscale" | undefined;
     listenHost?: string | undefined;
     listenPort?: number | undefined;
+    target?: {
+        port?: number | undefined;
+        host?: string | undefined;
+        protocol?: "http" | "https" | undefined;
+    } | undefined;
     frp?: {
         executablePath?: string | undefined;
         serverAddress?: string | undefined;
@@ -156,13 +163,6 @@ export declare const configSchema: z.ZodObject<{
         startWithDsh?: boolean | undefined;
     } | undefined;
     version?: 1 | undefined;
-    enabled?: boolean | undefined;
-    mode?: "tunnel" | "loopback" | "lan" | "tailscale" | undefined;
-    target?: {
-        host?: string | undefined;
-        port?: number | undefined;
-        protocol?: "http" | "https" | undefined;
-    } | undefined;
     publicBaseUrl?: string | undefined;
     trustedProxyCidrs?: string[] | undefined;
     sessionTtlMinutes?: number | undefined;

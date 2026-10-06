@@ -48,7 +48,17 @@
     "passwordTooShort": "The new password must be at least 10 characters.",
     "passwordMismatch": "New passwords do not match.",
     "passwordChanged": "Password changed. All remote sessions were revoked.",
-    "configurationTitle": "Advanced configuration",
-    "configurationBody": "Use “Open configuration file” in the top-right corner for listener, credential-reference, and tunnel settings."
+    "configurationTitle": "Access configuration",
+    "configurationBody": "Saving applies these settings through DSH configuration. LAN and Tailscale modes listen on all network interfaces.",
+    "enableGateway": "Enable access gateway",
+    "accessMode": "Access mode",
+    "modeLoopback": "This computer only",
+    "modeLan": "Local network",
+    "modeTailscale": "Tailscale",
+    "listenHostField": "Listen address",
+    "gatewayPort": "Gateway port",
+    "targetPort": "DSH original port",
+    "saveAndApply": "Save and apply",
+    "configurationSaved": "Configuration saved and applied."
   }
 }

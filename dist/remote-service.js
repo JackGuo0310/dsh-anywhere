@@ -33,6 +33,7 @@ var __esDecorate = (this && this.__esDecorate) || function (ctor, descriptorIn, 
     done = true;
 };
 import { networkInterfaces } from 'node:os';
+import { assertSafeConfig } from './config.js';
 import { FrpTunnelProvider } from './tunnel/frp.js';
 import { CustomCommandTunnelProvider } from './tunnel/custom-command.js';
 import { RemoteGateway } from './gateway/remote-gateway.js';
@@ -66,6 +67,7 @@ let RemoteAccessService = (() => {
     let _classSuper = TypertRemoteService;
     let _instanceExtraInitializers = [];
     let _status_decorators;
+    let _saveCommonConfig_decorators;
     let _discoverNetwork_decorators;
     let _detectTailscale_decorators;
     let _startTunnel_decorators;
@@ -76,6 +78,7 @@ let RemoteAccessService = (() => {
         static {
             const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(_classSuper[Symbol.metadata] ?? null) : void 0;
             _status_decorators = [Remote('status')];
+            _saveCommonConfig_decorators = [Remote('saveCommonConfig')];
             _discoverNetwork_decorators = [Remote('discoverNetwork')];
             _detectTailscale_decorators = [Remote('detectTailscale')];
             _startTunnel_decorators = [Remote('startTunnel')];
@@ -83,6 +86,7 @@ let RemoteAccessService = (() => {
             _changePassword_decorators = [Remote('changePassword')];
             _revokeAllSessions_decorators = [Remote('revokeAllSessions')];
             __esDecorate(this, null, _status_decorators, { kind: "method", name: "status", static: false, private: false, access: { has: obj => "status" in obj, get: obj => obj.status }, metadata: _metadata }, null, _instanceExtraInitializers);
+            __esDecorate(this, null, _saveCommonConfig_decorators, { kind: "method", name: "saveCommonConfig", static: false, private: false, access: { has: obj => "saveCommonConfig" in obj, get: obj => obj.saveCommonConfig }, metadata: _metadata }, null, _instanceExtraInitializers);
             __esDecorate(this, null, _discoverNetwork_decorators, { kind: "method", name: "discoverNetwork", static: false, private: false, access: { has: obj => "discoverNetwork" in obj, get: obj => obj.discoverNetwork }, metadata: _metadata }, null, _instanceExtraInitializers);
             __esDecorate(this, null, _detectTailscale_decorators, { kind: "method", name: "detectTailscale", static: false, private: false, access: { has: obj => "detectTailscale" in obj, get: obj => obj.detectTailscale }, metadata: _metadata }, null, _instanceExtraInitializers);
             __esDecorate(this, null, _startTunnel_decorators, { kind: "method", name: "startTunnel", static: false, private: false, access: { has: obj => "startTunnel" in obj, get: obj => obj.startTunnel }, metadata: _metadata }, null, _instanceExtraInitializers);
@@ -129,6 +133,41 @@ let RemoteAccessService = (() => {
                 administratorConfigured: !!passwordHash,
                 tunnel: this.tunnel ? { id: this.tunnel.id, ...this.tunnel.status() } : undefined,
             };
+        }
+        async saveCommonConfig(request) {
+            if (!request || typeof request.enabled !== 'boolean')
+                throw new Error('Gateway enabled state is required.');
+            if (!['loopback', 'lan', 'tailscale'].includes(String(request.mode)))
+                throw new Error('Invalid access mode.');
+            if (typeof request.listenHost !== 'string')
+                throw new Error('Listen host is required.');
+            const listenPort = Number(request.listenPort);
+            const targetPort = Number(request.targetPort);
+            const next = assertSafeConfig({
+                ...this.config,
+                enabled: request.enabled,
+                mode: request.mode,
+                listenHost: request.listenHost,
+                listenPort,
+                target: { ...this.config.target, port: targetPort },
+                adminConfigured: !!(await this.loadPasswordHash()),
+            });
+            const editor = this.ctx.get('configEditor');
+            if (!editor)
+                throw new Error('DSH configuration editor is unavailable.');
+            const entry = editor.entries().find((item) => item.id === 'dsh-remote-access' || item.name === '@dsh-community/dsh-remote-access');
+            if (!entry)
+                throw new Error('Remote access configuration entry was not found.');
+            await editor.edit(entry, (current) => ({
+                ...current,
+                enabled: next.enabled,
+                mode: next.mode,
+                listenHost: next.listenHost,
+                listenPort: next.listenPort,
+                target: next.target,
+                adminConfigured: next.adminConfigured,
+            }));
+            return { saved: true };
         }
         async discoverNetwork() {
             return { lanIpv4: lanAddresses(), gatewayPort: this.config.listenPort };

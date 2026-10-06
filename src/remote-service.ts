@@ -1,5 +1,5 @@
 import { networkInterfaces } from 'node:os'
-import type { RemoteAccessConfig } from './config.js'
+import { assertSafeConfig, type RemoteAccessConfig } from './config.js'
 import { FrpTunnelProvider } from './tunnel/frp.js'
 import { CustomCommandTunnelProvider } from './tunnel/custom-command.js'
 import type { TunnelProvider } from './tunnel/types.js'
@@ -15,6 +15,12 @@ type Credentials = {
 }
 
 type PasswordChangeRequest = { currentPassword?: unknown, newPassword?: unknown }
+type CommonConfigRequest = { enabled?: unknown, mode?: unknown, listenHost?: unknown, listenPort?: unknown, targetPort?: unknown }
+type ConfigEditorEntry = { id?: string, name?: string }
+type ConfigEditor = {
+  entries(): ConfigEditorEntry[]
+  edit(entry: ConfigEditorEntry, change: (current: Record<string, unknown>, inherited: Record<string, unknown>) => Record<string, unknown>): Promise<void>
+}
 
 function redactConfig(config: RemoteAccessConfig) {
   return {
@@ -80,6 +86,38 @@ export class RemoteAccessService extends TypertRemoteService {
       administratorConfigured: !!passwordHash,
       tunnel: this.tunnel ? { id: this.tunnel.id, ...this.tunnel.status() } : undefined,
     }
+  }
+
+  @Remote('saveCommonConfig')
+  async saveCommonConfig(request: CommonConfigRequest): Promise<unknown> {
+    if (!request || typeof request.enabled !== 'boolean') throw new Error('Gateway enabled state is required.')
+    if (!['loopback', 'lan', 'tailscale'].includes(String(request.mode))) throw new Error('Invalid access mode.')
+    if (typeof request.listenHost !== 'string') throw new Error('Listen host is required.')
+    const listenPort = Number(request.listenPort)
+    const targetPort = Number(request.targetPort)
+    const next = assertSafeConfig({
+      ...this.config,
+      enabled: request.enabled,
+      mode: request.mode,
+      listenHost: request.listenHost,
+      listenPort,
+      target: { ...this.config.target, port: targetPort },
+      adminConfigured: !!(await this.loadPasswordHash()),
+    })
+    const editor = this.ctx.get('configEditor') as ConfigEditor | undefined
+    if (!editor) throw new Error('DSH configuration editor is unavailable.')
+    const entry = editor.entries().find((item) => item.id === 'dsh-remote-access' || item.name === '@dsh-community/dsh-remote-access')
+    if (!entry) throw new Error('Remote access configuration entry was not found.')
+    await editor.edit(entry, (current) => ({
+      ...current,
+      enabled: next.enabled,
+      mode: next.mode,
+      listenHost: next.listenHost,
+      listenPort: next.listenPort,
+      target: next.target,
+      adminConfigured: next.adminConfigured,
+    }))
+    return { saved: true }
   }
 
   @Remote('discoverNetwork')

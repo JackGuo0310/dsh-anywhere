@@ -46,7 +46,7 @@ const css = `
 .dsh-remote-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}.dsh-remote-button{min-height:44px;padding:0 14px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font:inherit;font-size:14px;cursor:pointer}
 .dsh-remote-button:hover{background:var(--dsw-alias-bg-layer-2)}.dsh-remote-button:focus-visible,.dsh-remote-fields input:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}.dsh-remote-button-primary{border-color:transparent;background:var(--dsw-alias-label-primary);color:var(--dsw-alias-bg-base)}.dsh-remote-button-primary:hover{opacity:.88}.dsh-remote-button:disabled{opacity:.5;cursor:wait}
 .dsh-remote-feedback{margin-top:12px;padding:10px 12px;border-radius:8px;background:var(--dsw-alias-bg-layer-2);font-size:14px}.dsh-remote-feedback[data-tone=success]{color:var(--dsw-alias-state-success-primary)}.dsh-remote-feedback[data-tone=error]{color:var(--dsw-alias-state-error-primary)}
-.dsh-remote-fields{display:grid;gap:14px;margin-top:16px}.dsh-remote-fields label{display:grid;gap:7px;font-size:14px}.dsh-remote-fields input{min-height:44px;padding:0 11px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font:inherit;outline:none}.dsh-remote-fields input:focus{border-color:var(--dsw-alias-brand-primary)}
+.dsh-remote-fields{display:grid;gap:14px;margin-top:16px}.dsh-remote-fields label{display:grid;gap:7px;font-size:14px}.dsh-remote-fields input{min-height:44px;padding:0 11px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font:inherit;outline:none}.dsh-remote-fields input:focus,.dsh-remote-fields select:focus{border-color:var(--dsw-alias-brand-primary)}.dsh-remote-fields select{min-height:44px;padding:0 11px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font:inherit}.dsh-remote-check{display:flex!important;grid-template-columns:none!important;align-items:center;gap:10px!important}.dsh-remote-check input{min-height:auto;width:18px;height:18px}
 @media(max-width:640px){.dsh-remote-status-grid{grid-template-columns:1fr}.dsh-remote-row:nth-last-child(2){border-bottom:1px solid var(--dsw-alias-border-l1)}}
 `
 
@@ -71,6 +71,11 @@ function SettingsSection(props: { t: Translator, call: HostCall, React: ReactLik
   const [currentPassword, setCurrentPassword] = React.useState('')
   const [newPassword, setNewPassword] = React.useState('')
   const [confirmPassword, setConfirmPassword] = React.useState('')
+  const [enabled, setEnabled] = React.useState(false)
+  const [mode, setMode] = React.useState('loopback')
+  const [listenHost, setListenHost] = React.useState('127.0.0.1')
+  const [listenPort, setListenPort] = React.useState('4173')
+  const [targetPort, setTargetPort] = React.useState('3080')
 
   const invoke = React.useCallback(async (method: string) => {
     setBusy(method)
@@ -78,7 +83,16 @@ function SettingsSection(props: { t: Translator, call: HostCall, React: ReactLik
     try {
       const result = await call(method)
       const value = objectOf(result)
-      if (method === 'status') setGatewayStatus(value)
+      if (method === 'status') {
+        setGatewayStatus(value)
+        const config = objectOf(value.configured)
+        const target = objectOf(config.target)
+        setEnabled(config.enabled === true)
+        setMode(textOf(config.mode, 'loopback'))
+        setListenHost(textOf(config.listenHost, '127.0.0.1'))
+        setListenPort(String(config.listenPort ?? 4173))
+        setTargetPort(String(target.port ?? 3080))
+      }
       if (method === 'discoverNetwork') {
         const addresses = Array.isArray(value.lanIpv4) ? value.lanIpv4.join('、') : ''
         setFeedback({ tone: 'success', message: addresses ? `${t('lanFound')} ${addresses}:${String(value.gatewayPort ?? '')}` : t('lanNotFound') })
@@ -122,6 +136,16 @@ function SettingsSection(props: { t: Translator, call: HostCall, React: ReactLik
     }
   }, [call, confirmPassword, currentPassword, gatewayStatus?.administratorConfigured, newPassword, t])
 
+  const saveCommonConfig = React.useCallback(async () => {
+    setBusy('saveCommonConfig'); setFeedback(undefined)
+    try {
+      await call('saveCommonConfig', { request: { enabled, mode, listenHost, listenPort: Number(listenPort), targetPort: Number(targetPort) } })
+      setFeedback({ tone: 'success', message: t('configurationSaved') })
+    } catch (error) {
+      setFeedback({ tone: 'error', message: error instanceof Error ? error.message : String(error) })
+    } finally { setBusy(undefined) }
+  }, [call, enabled, listenHost, listenPort, mode, t, targetPort])
+
   const configured = objectOf(gatewayStatus?.configured)
   const tunnel = objectOf(gatewayStatus?.tunnel)
   const statusRows = [
@@ -161,7 +185,18 @@ function SettingsSection(props: { t: Translator, call: HostCall, React: ReactLik
       ),
       h('div', { className: 'dsh-remote-actions' }, h('button', { className: 'dsh-remote-button dsh-remote-button-primary', type: 'button', disabled: !!busy || (!!gatewayStatus?.administratorConfigured && !currentPassword) || !newPassword || !confirmPassword, onClick: changePassword }, t(gatewayStatus?.administratorConfigured ? 'changePassword' : 'initializePassword'))),
     ),
-    h('section', { className: 'dsh-remote-card' }, h('h2', null, t('configurationTitle')), h('p', null, t('configurationBody'))),
+    h('section', { className: 'dsh-remote-card' },
+      h('h2', null, t('configurationTitle')), h('p', null, t('configurationBody')),
+      h('div', { className: 'dsh-remote-fields' },
+        h('label', { className: 'dsh-remote-check' }, h('input', { type: 'checkbox', checked: enabled, disabled: !!busy, onChange: (event: { target: { checked: boolean } }) => setEnabled(event.target.checked) }), t('enableGateway')),
+        h('label', null, t('accessMode'), h('select', { value: mode, disabled: !!busy, onChange: (event: { target: { value: string } }) => { const value = event.target.value; setMode(value); setListenHost(value === 'loopback' ? '127.0.0.1' : '0.0.0.0') } },
+          h('option', { value: 'loopback' }, t('modeLoopback')), h('option', { value: 'lan' }, t('modeLan')), h('option', { value: 'tailscale' }, t('modeTailscale')))),
+        h('label', null, t('listenHostField'), h('input', { value: listenHost, disabled: !!busy, onChange: (event: { target: { value: string } }) => setListenHost(event.target.value) })),
+        h('label', null, t('gatewayPort'), h('input', { type: 'number', min: 1, max: 65535, value: listenPort, disabled: !!busy, onChange: (event: { target: { value: string } }) => setListenPort(event.target.value) })),
+        h('label', null, t('targetPort'), h('input', { type: 'number', min: 1, max: 65535, value: targetPort, disabled: !!busy, onChange: (event: { target: { value: string } }) => setTargetPort(event.target.value) })),
+      ),
+      h('div', { className: 'dsh-remote-actions' }, h('button', { className: 'dsh-remote-button dsh-remote-button-primary', type: 'button', disabled: !!busy || !gatewayStatus?.administratorConfigured, onClick: saveCommonConfig }, busy === 'saveCommonConfig' ? t('working') : t('saveAndApply'))),
+    ),
   )
 }
 
