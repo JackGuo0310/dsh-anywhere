@@ -14,7 +14,7 @@ export declare const frpConfigSchema: z.ZodObject<{
     tlsEnabled: z.ZodDefault<z.ZodBoolean>;
     startWithDsh: z.ZodDefault<z.ZodBoolean>;
 }, "strict", z.ZodTypeAny, {
-    authMethod: "token" | "oidc" | "none";
+    authMethod: "none" | "token" | "oidc";
     transport: "http" | "https" | "stcp";
     tlsEnabled: boolean;
     startWithDsh: boolean;
@@ -28,7 +28,7 @@ export declare const frpConfigSchema: z.ZodObject<{
     executablePath?: string | undefined;
     serverAddress?: string | undefined;
     serverPort?: number | undefined;
-    authMethod?: "token" | "oidc" | "none" | undefined;
+    authMethod?: "none" | "token" | "oidc" | undefined;
     tokenSecretRef?: string | undefined;
     stcpSecretRef?: string | undefined;
     transport?: "http" | "https" | "stcp" | undefined;
@@ -47,12 +47,12 @@ export declare const configSchema: z.ZodObject<{
         port: z.ZodDefault<z.ZodNumber>;
         protocol: z.ZodDefault<z.ZodEnum<["http", "https"]>>;
     }, "strip", z.ZodTypeAny, {
-        port: number;
         host: string;
+        port: number;
         protocol: "http" | "https";
     }, {
-        port?: number | undefined;
         host?: string | undefined;
+        port?: number | undefined;
         protocol?: "http" | "https" | undefined;
     }>>;
     publicBaseUrl: z.ZodOptional<z.ZodString>;
@@ -73,7 +73,7 @@ export declare const configSchema: z.ZodObject<{
         tlsEnabled: z.ZodDefault<z.ZodBoolean>;
         startWithDsh: z.ZodDefault<z.ZodBoolean>;
     }, "strict", z.ZodTypeAny, {
-        authMethod: "token" | "oidc" | "none";
+        authMethod: "none" | "token" | "oidc";
         transport: "http" | "https" | "stcp";
         tlsEnabled: boolean;
         startWithDsh: boolean;
@@ -87,7 +87,7 @@ export declare const configSchema: z.ZodObject<{
         executablePath?: string | undefined;
         serverAddress?: string | undefined;
         serverPort?: number | undefined;
-        authMethod?: "token" | "oidc" | "none" | undefined;
+        authMethod?: "none" | "token" | "oidc" | undefined;
         tokenSecretRef?: string | undefined;
         stcpSecretRef?: string | undefined;
         transport?: "http" | "https" | "stcp" | undefined;
@@ -107,23 +107,29 @@ export declare const configSchema: z.ZodObject<{
         args: string[];
     }>>;
 }, "strict", z.ZodTypeAny, {
+    trustedProxyCidrs: string[];
+    sessionTtlMinutes: number;
+    maxRequestBodyBytes: number;
     enabled: boolean;
     mode: "loopback" | "tunnel" | "lan" | "tailscale";
     listenHost: string;
     listenPort: number;
     target: {
-        port: number;
         host: string;
+        port: number;
         protocol: "http" | "https";
     };
-    version: 1;
-    trustedProxyCidrs: string[];
-    sessionTtlMinutes: number;
-    maxRequestBodyBytes: number;
-    adminConfigured: boolean;
     customCommandEnabled: boolean;
+    version: 1;
+    adminConfigured: boolean;
+    publicBaseUrl?: string | undefined;
+    adminPasswordSecretRef?: string | undefined;
+    customCommand?: {
+        command: string;
+        args: string[];
+    } | undefined;
     frp?: {
-        authMethod: "token" | "oidc" | "none";
+        authMethod: "none" | "token" | "oidc";
         transport: "http" | "https" | "stcp";
         tlsEnabled: boolean;
         startWithDsh: boolean;
@@ -134,27 +140,25 @@ export declare const configSchema: z.ZodObject<{
         stcpSecretRef?: string | undefined;
         customDomain?: string | undefined;
     } | undefined;
+}, {
     publicBaseUrl?: string | undefined;
+    trustedProxyCidrs?: string[] | undefined;
+    sessionTtlMinutes?: number | undefined;
+    maxRequestBodyBytes?: number | undefined;
     adminPasswordSecretRef?: string | undefined;
     customCommand?: {
         command: string;
         args: string[];
     } | undefined;
-}, {
     enabled?: boolean | undefined;
     mode?: "loopback" | "tunnel" | "lan" | "tailscale" | undefined;
     listenHost?: string | undefined;
     listenPort?: number | undefined;
-    target?: {
-        port?: number | undefined;
-        host?: string | undefined;
-        protocol?: "http" | "https" | undefined;
-    } | undefined;
     frp?: {
         executablePath?: string | undefined;
         serverAddress?: string | undefined;
         serverPort?: number | undefined;
-        authMethod?: "token" | "oidc" | "none" | undefined;
+        authMethod?: "none" | "token" | "oidc" | undefined;
         tokenSecretRef?: string | undefined;
         stcpSecretRef?: string | undefined;
         transport?: "http" | "https" | "stcp" | undefined;
@@ -162,18 +166,14 @@ export declare const configSchema: z.ZodObject<{
         tlsEnabled?: boolean | undefined;
         startWithDsh?: boolean | undefined;
     } | undefined;
-    version?: 1 | undefined;
-    publicBaseUrl?: string | undefined;
-    trustedProxyCidrs?: string[] | undefined;
-    sessionTtlMinutes?: number | undefined;
-    maxRequestBodyBytes?: number | undefined;
-    adminConfigured?: boolean | undefined;
-    adminPasswordSecretRef?: string | undefined;
-    customCommandEnabled?: boolean | undefined;
-    customCommand?: {
-        command: string;
-        args: string[];
+    target?: {
+        host?: string | undefined;
+        port?: number | undefined;
+        protocol?: "http" | "https" | undefined;
     } | undefined;
+    customCommandEnabled?: boolean | undefined;
+    version?: 1 | undefined;
+    adminConfigured?: boolean | undefined;
 }>;
 export type RemoteAccessConfig = z.infer<typeof configSchema>;
 export declare function isLoopbackHost(host: string): boolean;

@@ -55,9 +55,42 @@
       "modeLoopback": "This computer only",
       "modeLan": "Local network",
       "modeTailscale": "Tailscale",
+      "modeTunnel": "Public tunnel",
       "listenHostField": "Listen address",
       "gatewayPort": "Gateway port",
+      "targetHost": "DSH target host",
       "targetPort": "DSH original port",
+      "targetProtocol": "DSH target protocol",
+      "protocolHttp": "HTTP",
+      "protocolHttps": "HTTPS",
+      "publicBaseUrl": "Public HTTPS URL",
+      "trustedProxyCidrs": "Trusted proxy IP/CIDR entries (one per line)",
+      "sessionTtlMinutes": "Session lifetime (minutes)",
+      "maxRequestBodyBytes": "Maximum request body (bytes)",
+      "adminPasswordSecretRef": "Administrator credential reference",
+      "tunnelConfiguration": "Tunnel provider",
+      "tunnelProvider": "Provider",
+      "providerNone": "None",
+      "providerFrp": "FRP",
+      "providerCustom": "Custom command",
+      "frpExecutablePath": "frpc executable path",
+      "frpServerAddress": "FRP server address",
+      "frpServerPort": "FRP server port",
+      "frpAuthMethod": "FRP authentication",
+      "authToken": "Token",
+      "authOidc": "OIDC",
+      "authNone": "None",
+      "frpTransport": "FRP transport",
+      "transportStcp": "STCP",
+      "frpCustomDomain": "Public domain",
+      "frpTlsEnabled": "Enable FRP TLS",
+      "frpStartWithDsh": "Start tunnel with DSH",
+      "frpTokenSecretRef": "FRP token credential reference",
+      "frpToken": "New FRP token (leave blank to keep current)",
+      "frpStcpSecretRef": "STCP credential reference",
+      "frpStcpSecret": "New STCP secret (leave blank to keep current)",
+      "customCommand": "Command executable",
+      "customArgs": "Arguments (one per line)",
       "saveAndApply": "Save and apply",
       "configurationSaved": "Configuration saved and applied."
     },
@@ -113,9 +146,42 @@
       "modeLoopback": "\u4EC5\u672C\u673A",
       "modeLan": "\u5C40\u57DF\u7F51",
       "modeTailscale": "Tailscale",
+      "modeTunnel": "\u516C\u7F51\u96A7\u9053",
       "listenHostField": "\u76D1\u542C\u5730\u5740",
       "gatewayPort": "\u7F51\u5173\u7AEF\u53E3",
+      "targetHost": "DSH \u76EE\u6807\u4E3B\u673A",
       "targetPort": "DSH \u539F\u59CB\u7AEF\u53E3",
+      "targetProtocol": "DSH \u76EE\u6807\u534F\u8BAE",
+      "protocolHttp": "HTTP",
+      "protocolHttps": "HTTPS",
+      "publicBaseUrl": "\u516C\u7F51 HTTPS \u5730\u5740",
+      "trustedProxyCidrs": "\u53EF\u4FE1\u4EE3\u7406 IP/CIDR\uFF08\u6BCF\u884C\u4E00\u6761\uFF09",
+      "sessionTtlMinutes": "\u4F1A\u8BDD\u6709\u6548\u671F\uFF08\u5206\u949F\uFF09",
+      "maxRequestBodyBytes": "\u8BF7\u6C42\u4F53\u4E0A\u9650\uFF08\u5B57\u8282\uFF09",
+      "adminPasswordSecretRef": "\u7BA1\u7406\u5458\u51ED\u636E\u5F15\u7528",
+      "tunnelConfiguration": "\u96A7\u9053\u63D0\u4F9B\u5546",
+      "tunnelProvider": "\u63D0\u4F9B\u5546",
+      "providerNone": "\u4E0D\u4F7F\u7528",
+      "providerFrp": "FRP",
+      "providerCustom": "\u81EA\u5B9A\u4E49\u547D\u4EE4",
+      "frpExecutablePath": "frpc \u7A0B\u5E8F\u8DEF\u5F84",
+      "frpServerAddress": "FRP \u670D\u52A1\u5668\u5730\u5740",
+      "frpServerPort": "FRP \u670D\u52A1\u5668\u7AEF\u53E3",
+      "frpAuthMethod": "FRP \u8BA4\u8BC1\u65B9\u5F0F",
+      "authToken": "Token",
+      "authOidc": "OIDC",
+      "authNone": "\u65E0\u8BA4\u8BC1",
+      "frpTransport": "FRP \u4F20\u8F93\u7C7B\u578B",
+      "transportStcp": "STCP",
+      "frpCustomDomain": "\u516C\u7F51\u57DF\u540D",
+      "frpTlsEnabled": "\u542F\u7528 FRP TLS",
+      "frpStartWithDsh": "\u968F DSH \u542F\u52A8\u96A7\u9053",
+      "frpTokenSecretRef": "FRP Token \u51ED\u636E\u5F15\u7528",
+      "frpToken": "\u65B0 FRP Token\uFF08\u7559\u7A7A\u5219\u4FDD\u7559\uFF09",
+      "frpStcpSecretRef": "STCP \u51ED\u636E\u5F15\u7528",
+      "frpStcpSecret": "\u65B0 STCP \u5BC6\u94A5\uFF08\u7559\u7A7A\u5219\u4FDD\u7559\uFF09",
+      "customCommand": "\u547D\u4EE4\u7A0B\u5E8F",
+      "customArgs": "\u547D\u4EE4\u53C2\u6570\uFF08\u6BCF\u884C\u4E00\u9879\uFF09",
       "saveAndApply": "\u4FDD\u5B58\u5E76\u5E94\u7528",
       "configurationSaved": "\u914D\u7F6E\u5DF2\u4FDD\u5B58\u5E76\u5E94\u7528\u3002"
     }
@@ -124,203 +190,132 @@
   // src/client-module.ts
   var sectionId = "dsh-remote-access";
   var remoteNamespace = "dshRemoteAccess";
+  var defaults = {
+    enabled: false,
+    mode: "loopback",
+    listenHost: "127.0.0.1",
+    listenPort: "4173",
+    targetHost: "127.0.0.1",
+    targetPort: "3080",
+    targetProtocol: "http",
+    publicBaseUrl: "",
+    trustedProxyCidrs: "",
+    sessionTtlMinutes: "1440",
+    maxRequestBodyBytes: "52428800",
+    adminPasswordSecretRef: "DSH_REMOTE_ADMIN_HASH",
+    tunnelProvider: "none",
+    frpExecutablePath: "",
+    frpServerAddress: "",
+    frpServerPort: "7000",
+    frpAuthMethod: "token",
+    frpTokenSecretRef: "DSH_REMOTE_FRP_TOKEN",
+    frpToken: "",
+    frpStcpSecretRef: "DSH_REMOTE_FRP_STCP_SECRET",
+    frpStcpSecret: "",
+    frpTransport: "https",
+    frpCustomDomain: "",
+    frpTlsEnabled: true,
+    frpStartWithDsh: false,
+    customCommand: "",
+    customArgs: ""
+  };
   var css = `
-.dsh-remote-access{max-width:760px;padding:4px 0 24px;color:var(--dsw-alias-label-primary)}
-.dsh-remote-intro{margin:0 0 18px;color:var(--dsw-alias-label-secondary);line-height:1.55}
-.dsh-remote-card{margin-top:16px;padding:20px;border:1px solid var(--dsw-alias-border-l1);border-radius:12px;background:var(--dsw-alias-bg-layer-1)}
-.dsh-remote-card h2{margin:0 0 14px;font-size:15px;font-weight:650}.dsh-remote-card p{margin:0;color:var(--dsw-alias-label-secondary);line-height:1.5}
-.dsh-remote-note{padding:14px 16px;border-radius:9px;background:var(--dsw-alias-bg-layer-2)}
-.dsh-remote-status-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 28px}
-.dsh-remote-row{display:flex;align-items:center;justify-content:space-between;gap:18px;min-height:48px;border-bottom:1px solid var(--dsw-alias-border-l1)}
-.dsh-remote-row:nth-last-child(-n+2){border-bottom:0}.dsh-remote-label{font-size:14px}.dsh-remote-value{color:var(--dsw-alias-label-secondary);font-size:14px;text-align:right;overflow-wrap:anywhere}
-.dsh-remote-value[data-state=success]{color:var(--dsw-alias-state-success-primary)}.dsh-remote-value[data-state=idle]{color:var(--dsw-alias-state-idle-primary)}
-.dsh-remote-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}.dsh-remote-button{min-height:44px;padding:0 14px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font:inherit;font-size:14px;cursor:pointer}
-.dsh-remote-button:hover{background:var(--dsw-alias-bg-layer-2)}.dsh-remote-button:focus-visible,.dsh-remote-fields input:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}.dsh-remote-button-primary{border-color:transparent;background:var(--dsw-alias-label-primary);color:var(--dsw-alias-bg-base)}.dsh-remote-button-primary:hover{opacity:.88}.dsh-remote-button:disabled{opacity:.5;cursor:wait}
-.dsh-remote-feedback{margin-top:12px;padding:10px 12px;border-radius:8px;background:var(--dsw-alias-bg-layer-2);font-size:14px}.dsh-remote-feedback[data-tone=success]{color:var(--dsw-alias-state-success-primary)}.dsh-remote-feedback[data-tone=error]{color:var(--dsw-alias-state-error-primary)}
-.dsh-remote-fields{display:grid;gap:14px;margin-top:16px}.dsh-remote-fields label{display:grid;gap:7px;font-size:14px}.dsh-remote-fields input{min-height:44px;padding:0 11px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font:inherit;outline:none}.dsh-remote-fields input:focus,.dsh-remote-fields select:focus{border-color:var(--dsw-alias-brand-primary)}.dsh-remote-fields select{min-height:44px;padding:0 11px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font:inherit}.dsh-remote-check{display:flex!important;grid-template-columns:none!important;align-items:center;gap:10px!important}.dsh-remote-check input{min-height:auto;width:18px;height:18px}
-@media(max-width:640px){.dsh-remote-status-grid{grid-template-columns:1fr}.dsh-remote-row:nth-last-child(2){border-bottom:1px solid var(--dsw-alias-border-l1)}}
+.dsh-remote-access{max-width:840px;padding:4px 0 28px;color:var(--dsw-alias-label-primary)}.dsh-remote-intro{color:var(--dsw-alias-label-secondary);line-height:1.55}.dsh-remote-card{margin-top:16px;padding:20px;border:1px solid var(--dsw-alias-border-l1);border-radius:12px;background:var(--dsw-alias-bg-layer-1)}.dsh-remote-card h2{margin:0 0 8px;font-size:16px}.dsh-remote-card p{margin:0;color:var(--dsw-alias-label-secondary);line-height:1.5}.dsh-remote-note{padding:14px 16px;border-radius:9px;background:var(--dsw-alias-bg-layer-2)}.dsh-remote-status-grid,.dsh-remote-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 20px;margin-top:16px}.dsh-remote-row{display:flex;justify-content:space-between;gap:16px;padding:12px 0;border-bottom:1px solid var(--dsw-alias-border-l1)}.dsh-remote-value{color:var(--dsw-alias-label-secondary);text-align:right}.dsh-remote-value[data-state=success]{color:var(--dsw-alias-state-success-primary)}.dsh-remote-fields label{display:grid;gap:7px;font-size:14px}.dsh-remote-fields .wide{grid-column:1/-1}.dsh-remote-fields input,.dsh-remote-fields select,.dsh-remote-fields textarea{min-height:44px;padding:9px 11px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font:inherit}.dsh-remote-fields textarea{min-height:76px;resize:vertical}.dsh-remote-check{display:flex!important;align-items:center;gap:10px!important}.dsh-remote-check input{min-height:auto;width:18px;height:18px}.dsh-remote-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}.dsh-remote-button{min-height:44px;padding:0 14px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font:inherit;cursor:pointer}.dsh-remote-button-primary{border-color:transparent;background:var(--dsw-alias-label-primary);color:var(--dsw-alias-bg-base)}.dsh-remote-button:disabled{opacity:.5;cursor:wait}.dsh-remote-button:focus-visible,.dsh-remote-fields :focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}.dsh-remote-feedback{margin-top:12px;padding:10px 12px;border-radius:8px;background:var(--dsw-alias-bg-layer-2)}.dsh-remote-feedback[data-tone=success]{color:var(--dsw-alias-state-success-primary)}.dsh-remote-feedback[data-tone=error]{color:var(--dsw-alias-state-danger-primary)}.dsh-remote-subtitle{grid-column:1/-1;margin:8px 0 0;font-size:14px;font-weight:650}@media(max-width:640px){.dsh-remote-status-grid,.dsh-remote-fields{grid-template-columns:1fr}.dsh-remote-fields .wide,.dsh-remote-subtitle{grid-column:auto}}
 `;
   function objectOf(value) {
-    return value !== null && typeof value === "object" ? value : {};
+    return value && typeof value === "object" ? value : {};
   }
-  function textOf(value, fallback) {
-    return typeof value === "string" && value.trim() ? value : fallback;
+  function text(value, fallback = "") {
+    return typeof value === "string" ? value : fallback;
   }
-  function yesNo(value, t) {
-    return value ? t("yes") : t("no");
-  }
-  function SettingsSection(props) {
-    const { t, call, React } = props;
+  function SettingsSection({ t, call, React }) {
     const h = React.createElement;
-    const [gatewayStatus, setGatewayStatus] = React.useState(void 0);
+    const [status, setStatus] = React.useState({});
+    const [form, setForm] = React.useState({ ...defaults });
+    const [busy, setBusy] = React.useState("");
     const [feedback, setFeedback] = React.useState(void 0);
-    const [busy, setBusy] = React.useState(void 0);
     const [currentPassword, setCurrentPassword] = React.useState("");
     const [newPassword, setNewPassword] = React.useState("");
     const [confirmPassword, setConfirmPassword] = React.useState("");
-    const [enabled, setEnabled] = React.useState(false);
-    const [mode, setMode] = React.useState("loopback");
-    const [listenHost, setListenHost] = React.useState("127.0.0.1");
-    const [listenPort, setListenPort] = React.useState("4173");
-    const [targetPort, setTargetPort] = React.useState("3080");
+    const set = (key, value) => setForm((previous) => ({ ...previous, [key]: value }));
+    const populate = (value) => {
+      const c = objectOf(value.configured), target = objectOf(c.target), frp = objectOf(c.frp), command = objectOf(c.customCommand);
+      setStatus(value);
+      setForm((previous) => ({ ...previous, enabled: c.enabled === true, mode: text(c.mode, "loopback"), listenHost: text(c.listenHost, "127.0.0.1"), listenPort: String(c.listenPort ?? 4173), targetHost: text(target.host, "127.0.0.1"), targetPort: String(target.port ?? 3080), targetProtocol: text(target.protocol, "http"), publicBaseUrl: text(c.publicBaseUrl), trustedProxyCidrs: Array.isArray(c.trustedProxyCidrs) ? c.trustedProxyCidrs.join("\n") : "", sessionTtlMinutes: String(c.sessionTtlMinutes ?? 1440), maxRequestBodyBytes: String(c.maxRequestBodyBytes ?? 52428800), adminPasswordSecretRef: text(c.adminPasswordSecretRef, "DSH_REMOTE_ADMIN_HASH"), tunnelProvider: c.frp ? "frp" : c.customCommandEnabled ? "custom" : "none", frpExecutablePath: text(frp.executablePath), frpServerAddress: text(frp.serverAddress), frpServerPort: String(frp.serverPort ?? 7e3), frpAuthMethod: text(frp.authMethod, "token"), frpTokenSecretRef: text(frp.tokenSecretRef, "DSH_REMOTE_FRP_TOKEN"), frpStcpSecretRef: text(frp.stcpSecretRef, "DSH_REMOTE_FRP_STCP_SECRET"), frpTransport: text(frp.transport, "https"), frpCustomDomain: text(frp.customDomain), frpTlsEnabled: frp.tlsEnabled !== false, frpStartWithDsh: frp.startWithDsh === true, customCommand: text(command.command), customArgs: Array.isArray(command.args) ? command.args.join("\n") : "" }));
+    };
     const invoke = React.useCallback(async (method) => {
       setBusy(method);
       setFeedback(void 0);
       try {
-        const result = await call(method);
-        const value = objectOf(result);
-        if (method === "status") {
-          setGatewayStatus(value);
-          const config = objectOf(value.configured);
-          const target = objectOf(config.target);
-          setEnabled(config.enabled === true);
-          setMode(textOf(config.mode, "loopback"));
-          setListenHost(textOf(config.listenHost, "127.0.0.1"));
-          setListenPort(String(config.listenPort ?? 4173));
-          setTargetPort(String(target.port ?? 3080));
-        }
-        if (method === "discoverNetwork") {
+        const value = objectOf(await call(method));
+        if (method === "status") populate(value);
+        else if (method === "discoverNetwork") {
           const addresses = Array.isArray(value.lanIpv4) ? value.lanIpv4.join("\u3001") : "";
           setFeedback({ tone: "success", message: addresses ? `${t("lanFound")} ${addresses}:${String(value.gatewayPort ?? "")}` : t("lanNotFound") });
         } else if (method === "detectTailscale") {
-          const ipv4 = Array.isArray(value.ipv4) ? value.ipv4.join("\u3001") : "";
-          const ipv6 = Array.isArray(value.ipv6) ? value.ipv6.join("\u3001") : "";
-          const dns = textOf(value.magicDnsName, "");
-          const details = [dns, ipv4, ipv6].filter(Boolean).join(" \xB7 ");
-          const message = value.installed === false ? t("tailscaleNotInstalled") : value.connected === false ? t("tailscaleDisconnected") : details ? `${t("tailscaleFound")} ${details}` : t("tailscaleNotFound");
-          setFeedback({ tone: value.connected ? "success" : "error", message });
-        } else if (method === "startTunnel") setFeedback({ tone: "success", message: t("tunnelStarted") });
-        else if (method === "restartTunnel") setFeedback({ tone: "success", message: t("tunnelRestarted") });
-        else if (method === "revokeAllSessions") setFeedback({ tone: "success", message: t("sessionsRevoked") });
-        if (["startTunnel", "restartTunnel", "revokeAllSessions"].includes(method)) setGatewayStatus(objectOf(await call("status")));
+          const details = [value.magicDnsName, ...value.ipv4 ?? [], ...value.ipv6 ?? []].filter(Boolean).join(" \xB7 ");
+          setFeedback({ tone: value.connected ? "success" : "error", message: value.installed === false ? t("tailscaleNotInstalled") : value.connected === false ? t("tailscaleDisconnected") : `${t("tailscaleFound")} ${details}` });
+        } else {
+          setFeedback({ tone: "success", message: t(method === "revokeAllSessions" ? "sessionsRevoked" : method === "restartTunnel" ? "tunnelRestarted" : "tunnelStarted") });
+        }
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        const missingTunnel = (method === "startTunnel" || method === "restartTunnel") && message === "No tunnel provider is configured.";
-        setFeedback({ tone: "error", message: missingTunnel ? t("tunnelNeedsConfiguration") : message });
+        setFeedback({ tone: "error", message: error instanceof Error ? error.message : String(error) });
       } finally {
-        setBusy(void 0);
+        setBusy("");
       }
     }, [call, t]);
     React.useEffect(() => {
       void invoke("status");
     }, [invoke]);
-    const changePassword = React.useCallback(async () => {
-      if (newPassword.length < 10) {
-        setFeedback({ tone: "error", message: t("passwordTooShort") });
-        return;
-      }
-      if (newPassword !== confirmPassword) {
-        setFeedback({ tone: "error", message: t("passwordMismatch") });
-        return;
-      }
-      setBusy("changePassword");
+    const save = React.useCallback(async () => {
+      setBusy("saveConfig");
       setFeedback(void 0);
       try {
-        const initializing = !gatewayStatus?.administratorConfigured;
+        const tunnelProvider = String(form.tunnelProvider);
+        const frp = tunnelProvider === "frp" ? { executablePath: form.frpExecutablePath, serverAddress: form.frpServerAddress, serverPort: Number(form.frpServerPort), authMethod: form.frpAuthMethod, tokenSecretRef: form.frpAuthMethod === "token" ? form.frpTokenSecretRef : void 0, stcpSecretRef: form.frpTransport === "stcp" ? form.frpStcpSecretRef : void 0, transport: form.frpTransport, customDomain: form.frpTransport === "stcp" ? void 0 : form.frpCustomDomain, tlsEnabled: form.frpTlsEnabled, startWithDsh: form.frpStartWithDsh } : void 0;
+        const config = { enabled: form.enabled, mode: form.mode, listenHost: form.listenHost, listenPort: Number(form.listenPort), target: { host: form.targetHost, port: Number(form.targetPort), protocol: form.targetProtocol }, publicBaseUrl: form.publicBaseUrl || void 0, trustedProxyCidrs: String(form.trustedProxyCidrs).split(/\r?\n|,/).map((v) => v.trim()).filter(Boolean), sessionTtlMinutes: Number(form.sessionTtlMinutes), maxRequestBodyBytes: Number(form.maxRequestBodyBytes), adminPasswordSecretRef: form.adminPasswordSecretRef, frp, customCommandEnabled: tunnelProvider === "custom", customCommand: tunnelProvider === "custom" ? { command: form.customCommand, args: String(form.customArgs).split(/\r?\n/).filter(Boolean) } : void 0 };
+        await call("saveConfig", { request: { config, secrets: { frpToken: form.frpToken, stcpSecret: form.frpStcpSecret } } });
+        setFeedback({ tone: "success", message: t("configurationSaved") });
+        set("frpToken", "");
+        set("frpStcpSecret", "");
+      } catch (error) {
+        setFeedback({ tone: "error", message: error instanceof Error ? error.message : String(error) });
+      } finally {
+        setBusy("");
+      }
+    }, [call, form, t]);
+    const changePassword = React.useCallback(async () => {
+      if (newPassword.length < 10 || newPassword !== confirmPassword) {
+        setFeedback({ tone: "error", message: t(newPassword.length < 10 ? "passwordTooShort" : "passwordMismatch") });
+        return;
+      }
+      setBusy("password");
+      try {
         await call("changePassword", { request: { currentPassword, newPassword } });
         setCurrentPassword("");
         setNewPassword("");
         setConfirmPassword("");
-        setGatewayStatus(objectOf(await call("status")));
-        setFeedback({ tone: "success", message: t(initializing ? "passwordInitialized" : "passwordChanged") });
+        setFeedback({ tone: "success", message: t(status.administratorConfigured ? "passwordChanged" : "passwordInitialized") });
+        populate(objectOf(await call("status")));
       } catch (error) {
         setFeedback({ tone: "error", message: error instanceof Error ? error.message : String(error) });
       } finally {
-        setBusy(void 0);
+        setBusy("");
       }
-    }, [call, confirmPassword, currentPassword, gatewayStatus?.administratorConfigured, newPassword, t]);
-    const saveCommonConfig = React.useCallback(async () => {
-      setBusy("saveCommonConfig");
-      setFeedback(void 0);
-      try {
-        await call("saveCommonConfig", { request: { enabled, mode, listenHost, listenPort: Number(listenPort), targetPort: Number(targetPort) } });
-        setFeedback({ tone: "success", message: t("configurationSaved") });
-      } catch (error) {
-        setFeedback({ tone: "error", message: error instanceof Error ? error.message : String(error) });
-      } finally {
-        setBusy(void 0);
-      }
-    }, [call, enabled, listenHost, listenPort, mode, t, targetPort]);
-    const configured = objectOf(gatewayStatus?.configured);
-    const tunnel = objectOf(gatewayStatus?.tunnel);
-    const statusRows = [
-      [t("gatewayRunning"), yesNo(gatewayStatus?.running, t), gatewayStatus?.running ? "success" : "idle"],
-      [t("administratorReady"), yesNo(gatewayStatus?.administratorConfigured, t), gatewayStatus?.administratorConfigured ? "success" : "idle"],
-      [t("listenAddress"), `${textOf(configured.listenHost, "\u2014")}:${String(configured.listenPort ?? "\u2014")}`, ""],
-      [t("tunnelState"), gatewayStatus?.tunnel ? textOf(tunnel.state, textOf(tunnel.id, t("configured"))) : t("notConfigured"), gatewayStatus?.tunnel ? "success" : "idle"]
-    ];
+    }, [call, confirmPassword, currentPassword, newPassword, status.administratorConfigured, t]);
+    const input = (key, label, type = "text", wide = false) => h("label", { className: wide ? "wide" : "" }, t(label), h("input", { type, value: form[key], disabled: !!busy, onChange: (e) => set(key, e.target.value) }));
+    const select = (key, label, options) => h("label", null, t(label), h("select", { value: form[key], disabled: !!busy, onChange: (e) => set(key, e.target.value) }, ...options.map(([value, labelKey]) => h("option", { value, key: value }, t(labelKey)))));
+    const check = (key, label) => h("label", { className: "dsh-remote-check" }, h("input", { type: "checkbox", checked: form[key] === true, disabled: !!busy, onChange: (e) => set(key, e.target.checked) }), t(label));
+    const configured = objectOf(status.configured), tunnel = objectOf(status.tunnel);
     return h(
       "main",
       { className: "dsh-remote-access" },
       h("p", { className: "dsh-remote-intro" }, t("summary")),
       h("section", { className: "dsh-remote-note" }, h("p", null, t("safetyBody"))),
-      h(
-        "section",
-        { className: "dsh-remote-card" },
-        h("h2", null, t("overviewTitle")),
-        h("div", { className: "dsh-remote-status-grid" }, ...statusRows.map(([label, value, state]) => h("div", { className: "dsh-remote-row", key: label }, h("span", { className: "dsh-remote-label" }, label), h("span", { className: "dsh-remote-value", "data-state": state }, value)))),
-        h(
-          "div",
-          { className: "dsh-remote-actions" },
-          h("button", { className: "dsh-remote-button", type: "button", disabled: !!busy, onClick: () => invoke("status") }, busy === "status" ? t("working") : t("refreshStatus")),
-          h("button", { className: "dsh-remote-button", type: "button", disabled: !!busy, onClick: () => invoke("discoverNetwork") }, t("discoverNetwork")),
-          h("button", { className: "dsh-remote-button", type: "button", disabled: !!busy, onClick: () => invoke("detectTailscale") }, t("detectTailscale"))
-        )
-      ),
-      h(
-        "section",
-        { className: "dsh-remote-card" },
-        h("h2", null, t("tunnelTitle")),
-        h("p", null, t("tunnelBody")),
-        h(
-          "div",
-          { className: "dsh-remote-actions" },
-          h("button", { className: "dsh-remote-button dsh-remote-button-primary", type: "button", disabled: !!busy, onClick: () => invoke("startTunnel") }, t("startTunnel")),
-          h("button", { className: "dsh-remote-button", type: "button", disabled: !!busy, onClick: () => invoke("restartTunnel") }, t("restartTunnel")),
-          h("button", { className: "dsh-remote-button", type: "button", disabled: !!busy || !gatewayStatus?.running, onClick: () => invoke("revokeAllSessions") }, t("revokeSessions"))
-        ),
-        feedback ? h("div", { className: "dsh-remote-feedback", "data-tone": feedback.tone, role: feedback.tone === "error" ? "alert" : "status" }, feedback.message) : null
-      ),
-      h(
-        "section",
-        { className: "dsh-remote-card" },
-        h("h2", null, t(gatewayStatus?.administratorConfigured ? "changePasswordTitle" : "initializePasswordTitle")),
-        h("p", null, t(gatewayStatus?.administratorConfigured ? "changePasswordBody" : "initializePasswordBody")),
-        h(
-          "div",
-          { className: "dsh-remote-fields" },
-          gatewayStatus?.administratorConfigured ? h("label", null, t("currentPassword"), h("input", { type: "password", autoComplete: "current-password", value: currentPassword, disabled: !!busy, onChange: (event) => setCurrentPassword(event.target.value) })) : null,
-          h("label", null, t("newPassword"), h("input", { type: "password", autoComplete: "new-password", value: newPassword, disabled: !!busy, onChange: (event) => setNewPassword(event.target.value) })),
-          h("label", null, t("confirmPassword"), h("input", { type: "password", autoComplete: "new-password", value: confirmPassword, disabled: !!busy, onChange: (event) => setConfirmPassword(event.target.value) }))
-        ),
-        h("div", { className: "dsh-remote-actions" }, h("button", { className: "dsh-remote-button dsh-remote-button-primary", type: "button", disabled: !!busy || !!gatewayStatus?.administratorConfigured && !currentPassword || !newPassword || !confirmPassword, onClick: changePassword }, t(gatewayStatus?.administratorConfigured ? "changePassword" : "initializePassword")))
-      ),
-      h(
-        "section",
-        { className: "dsh-remote-card" },
-        h("h2", null, t("configurationTitle")),
-        h("p", null, t("configurationBody")),
-        h(
-          "div",
-          { className: "dsh-remote-fields" },
-          h("label", { className: "dsh-remote-check" }, h("input", { type: "checkbox", checked: enabled, disabled: !!busy, onChange: (event) => setEnabled(event.target.checked) }), t("enableGateway")),
-          h("label", null, t("accessMode"), h(
-            "select",
-            { value: mode, disabled: !!busy, onChange: (event) => {
-              const value = event.target.value;
-              setMode(value);
-              setListenHost(value === "loopback" ? "127.0.0.1" : "0.0.0.0");
-            } },
-            h("option", { value: "loopback" }, t("modeLoopback")),
-            h("option", { value: "lan" }, t("modeLan")),
-            h("option", { value: "tailscale" }, t("modeTailscale"))
-          )),
-          h("label", null, t("listenHostField"), h("input", { value: listenHost, disabled: !!busy, onChange: (event) => setListenHost(event.target.value) })),
-          h("label", null, t("gatewayPort"), h("input", { type: "number", min: 1, max: 65535, value: listenPort, disabled: !!busy, onChange: (event) => setListenPort(event.target.value) })),
-          h("label", null, t("targetPort"), h("input", { type: "number", min: 1, max: 65535, value: targetPort, disabled: !!busy, onChange: (event) => setTargetPort(event.target.value) }))
-        ),
-        h("div", { className: "dsh-remote-actions" }, h("button", { className: "dsh-remote-button dsh-remote-button-primary", type: "button", disabled: !!busy || !gatewayStatus?.administratorConfigured, onClick: saveCommonConfig }, busy === "saveCommonConfig" ? t("working") : t("saveAndApply")))
-      )
+      h("section", { className: "dsh-remote-card" }, h("h2", null, t("overviewTitle")), h("div", { className: "dsh-remote-status-grid" }, ...[[t("gatewayRunning"), status.running ? t("yes") : t("no")], [t("administratorReady"), status.administratorConfigured ? t("yes") : t("no")], [t("listenAddress"), `${configured.listenHost ?? "\u2014"}:${configured.listenPort ?? "\u2014"}`], [t("tunnelState"), status.tunnel ? tunnel.state ?? tunnel.id : t("notConfigured")]].map(([label, value]) => h("div", { className: "dsh-remote-row", key: label }, h("span", null, label), h("span", { className: "dsh-remote-value" }, value)))), h("div", { className: "dsh-remote-actions" }, ...[["status", "refreshStatus"], ["discoverNetwork", "discoverNetwork"], ["detectTailscale", "detectTailscale"]].map(([method, label]) => h("button", { className: "dsh-remote-button", disabled: !!busy, onClick: () => invoke(method), key: method }, t(label))))),
+      h("section", { className: "dsh-remote-card" }, h("h2", null, t("configurationTitle")), h("p", null, t("configurationBody")), h("div", { className: "dsh-remote-fields" }, check("enabled", "enableGateway"), select("mode", "accessMode", [["loopback", "modeLoopback"], ["lan", "modeLan"], ["tailscale", "modeTailscale"], ["tunnel", "modeTunnel"]]), input("listenHost", "listenHostField"), input("listenPort", "gatewayPort", "number"), input("targetHost", "targetHost"), input("targetPort", "targetPort", "number"), select("targetProtocol", "targetProtocol", [["http", "protocolHttp"], ["https", "protocolHttps"]]), input("publicBaseUrl", "publicBaseUrl", "url"), input("sessionTtlMinutes", "sessionTtlMinutes", "number"), input("maxRequestBodyBytes", "maxRequestBodyBytes", "number"), input("adminPasswordSecretRef", "adminPasswordSecretRef"), h("label", { className: "wide" }, t("trustedProxyCidrs"), h("textarea", { value: form.trustedProxyCidrs, disabled: !!busy, onChange: (e) => set("trustedProxyCidrs", e.target.value) })), h("div", { className: "dsh-remote-subtitle" }, t("tunnelConfiguration")), select("tunnelProvider", "tunnelProvider", [["none", "providerNone"], ["frp", "providerFrp"], ["custom", "providerCustom"]]), form.tunnelProvider === "frp" ? [input("frpExecutablePath", "frpExecutablePath"), input("frpServerAddress", "frpServerAddress"), input("frpServerPort", "frpServerPort", "number"), select("frpAuthMethod", "frpAuthMethod", [["token", "authToken"], ["oidc", "authOidc"], ["none", "authNone"]]), select("frpTransport", "frpTransport", [["https", "protocolHttps"], ["http", "protocolHttp"], ["stcp", "transportStcp"]]), input("frpCustomDomain", "frpCustomDomain"), check("frpTlsEnabled", "frpTlsEnabled"), check("frpStartWithDsh", "frpStartWithDsh"), form.frpAuthMethod === "token" ? input("frpTokenSecretRef", "frpTokenSecretRef") : null, form.frpAuthMethod === "token" ? input("frpToken", "frpToken", "password") : null, form.frpTransport === "stcp" ? input("frpStcpSecretRef", "frpStcpSecretRef") : null, form.frpTransport === "stcp" ? input("frpStcpSecret", "frpStcpSecret", "password") : null] : null, form.tunnelProvider === "custom" ? [input("customCommand", "customCommand", "text", true), h("label", { className: "wide" }, t("customArgs"), h("textarea", { value: form.customArgs, disabled: !!busy, onChange: (e) => set("customArgs", e.target.value) }))] : null), h("div", { className: "dsh-remote-actions" }, h("button", { className: "dsh-remote-button dsh-remote-button-primary", disabled: !!busy || !status.administratorConfigured, onClick: save }, busy === "saveConfig" ? t("working") : t("saveAndApply")))),
+      h("section", { className: "dsh-remote-card" }, h("h2", null, t(status.administratorConfigured ? "changePasswordTitle" : "initializePasswordTitle")), h("p", null, t(status.administratorConfigured ? "changePasswordBody" : "initializePasswordBody")), h("div", { className: "dsh-remote-fields" }, status.administratorConfigured ? h("label", null, t("currentPassword"), h("input", { type: "password", value: currentPassword, onChange: (e) => setCurrentPassword(e.target.value) })) : null, h("label", null, t("newPassword"), h("input", { type: "password", value: newPassword, onChange: (e) => setNewPassword(e.target.value) })), h("label", null, t("confirmPassword"), h("input", { type: "password", value: confirmPassword, onChange: (e) => setConfirmPassword(e.target.value) }))), h("div", { className: "dsh-remote-actions" }, h("button", { className: "dsh-remote-button dsh-remote-button-primary", disabled: !!busy, onClick: changePassword }, t(status.administratorConfigured ? "changePassword" : "initializePassword")))),
+      h("section", { className: "dsh-remote-card" }, h("h2", null, t("tunnelTitle")), h("p", null, t("tunnelBody")), h("div", { className: "dsh-remote-actions" }, h("button", { className: "dsh-remote-button dsh-remote-button-primary", disabled: !!busy, onClick: () => invoke("startTunnel") }, t("startTunnel")), h("button", { className: "dsh-remote-button", disabled: !!busy, onClick: () => invoke("restartTunnel") }, t("restartTunnel")), h("button", { className: "dsh-remote-button", disabled: !!busy || !status.running, onClick: () => invoke("revokeAllSessions") }, t("revokeSessions"))), feedback ? h("div", { className: "dsh-remote-feedback", "data-tone": feedback.tone, role: feedback.tone === "error" ? "alert" : "status" }, feedback.message) : null)
     );
   }
   async function callRemoteHost(ctx, method, args = {}) {
@@ -329,9 +324,8 @@
     throw new Error(result.error?.message ?? `Remote call ${method} failed.`);
   }
   function insertStyles() {
-    if (typeof document === "undefined" || document.head === null) return;
-    const selector = "style[data-dsh-remote-access-styles]";
-    const existing = document.head.querySelector(selector);
+    if (typeof document === "undefined" || !document.head) return;
+    const existing = document.head.querySelector("style[data-dsh-remote-access-styles]");
     if (existing) return;
     const style = document.createElement("style");
     style.dataset.dshRemoteAccessStyles = "";
@@ -340,22 +334,13 @@
     return () => style.remove();
   }
   function createClientModule(React) {
-    return {
-      inject: ["slots", "locale", "connection"],
-      apply(ctx) {
-        ctx.effect(() => insertStyles());
-        ctx.effect(() => ctx.locale.register(localeNamespace, dictionaries));
-        const t = ctx.locale.bind(localeNamespace);
-        const call = (method, args) => callRemoteHost(ctx, method, args ?? {});
-        ctx.effect(() => ctx.slots.inject("settings.section", () => ctx.slots.register({
-          name: "settings.section",
-          id: sectionId,
-          order: 80,
-          label: () => t("title"),
-          inject: () => ({ t, call, React })
-        }, SettingsSection)));
-      }
-    };
+    return { inject: ["slots", "locale", "connection"], apply(ctx) {
+      ctx.effect(() => insertStyles());
+      ctx.effect(() => ctx.locale.register(localeNamespace, dictionaries));
+      const t = ctx.locale.bind(localeNamespace);
+      const call = (method, args) => callRemoteHost(ctx, method, args ?? {});
+      ctx.effect(() => ctx.slots.inject("settings.section", () => ctx.slots.register({ name: "settings.section", id: sectionId, order: 80, label: () => t("title"), inject: () => ({ t, call, React }) }, SettingsSection)));
+    } };
   }
 
   // src/client-entry.ts
