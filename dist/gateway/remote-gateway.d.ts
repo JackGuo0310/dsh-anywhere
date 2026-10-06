@@ -7,7 +7,7 @@ export declare class RemoteGateway {
     constructor(config: RemoteAccessConfig, passwordHash?: string);
     start(): Promise<void>;
     stop(): Promise<void>;
-    bootstrapAdmin(password: string): Promise<void>;
+    bootstrapAdmin(password: string): Promise<string>;
     changeAdminPassword(currentPassword: string, nextPassword: string): Promise<string>;
     passwordRecord(): string | undefined;
     revokeAllSessions(): void;

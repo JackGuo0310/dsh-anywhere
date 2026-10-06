@@ -6,9 +6,9 @@ test('enabled gateway requires an administrator password reference', () => {
   assert.throws(() => assertSafeConfig({ enabled: true }), /credential reference/i)
 })
 
-test('external listener requires administrator configuration and password reference', () => {
+test('external listener requires a password credential reference', () => {
   assert.throws(() => assertSafeConfig({ enabled: true, listenHost: '0.0.0.0' }), /credential reference/i)
-  assert.throws(() => assertSafeConfig({ enabled: true, listenHost: '0.0.0.0', adminPasswordSecretRef: 'DSH_REMOTE_HASH' }), /administrator/i)
+  assert.equal(assertSafeConfig({ enabled: true, listenHost: '0.0.0.0', adminPasswordSecretRef: 'DSH_REMOTE_HASH' }).listenHost, '0.0.0.0')
 })
 
 test('tunnel requires HTTPS public address and provider', () => {

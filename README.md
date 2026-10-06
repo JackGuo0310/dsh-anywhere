@@ -26,11 +26,11 @@
 
 ## 管理员密码
 
-设置页可修改管理员密码：必须输入当前密码，新的密码至少 12 个字符，且会被保存为 scrypt 哈希到 `adminPasswordSecretRef` 指向的 DSH credential。改密成功后会立即撤销全部远程会话；原始密码不会写入配置、状态或日志。
+首次使用可在设置页直接设置管理员密码；之后修改密码必须输入当前密码。初始密码和新密码均至少 10 个字符，并以 scrypt 哈希保存到 `adminPasswordSecretRef` 指向的 DSH credential。改密成功后会立即撤销全部远程会话；原始密码不会写入配置、状态或日志。
 
 ## 版本兼容性
 
-当前 `v0.1.8` 锁定 DeepSeek Harness `0.2.1-alpha.1` 运行时：
+当前 `v0.1.9` 锁定 DeepSeek Harness `0.2.1-alpha.1` 运行时：
 
 - `@deepseek-ai/cordis`：`~4.0.5-alpha.1`
 - `@deepseek-ai/dsh-credentials`：`0.2.1-alpha.1`
@@ -40,17 +40,17 @@
 
 ## 安装（Git tag）
 
-`v0.1.8` 尚未发布到 npm。可在目标机器使用 Git tag 安装：
+`v0.1.9` 尚未发布到 npm。可在目标机器使用 Git tag 安装：
 
 ```powershell
 # dsh 会将 bundle 安装到指定 profile；按你的实际 profile 名替换 web。
-dsh plugin --profile web add https://github.com/JackGuo0310/dsh-anywhere.git#v0.1.8
+dsh plugin --profile web add https://github.com/JackGuo0310/dsh-anywhere.git#v0.1.9
 ```
 
 也可先克隆该 tag 并从本地目录安装：
 
 ```powershell
-git clone --branch v0.1.8 --depth 1 https://github.com/JackGuo0310/dsh-anywhere.git
+git clone --branch v0.1.9 --depth 1 https://github.com/JackGuo0310/dsh-anywhere.git
 dsh plugin --profile web add .\dsh-anywhere
 ```
 

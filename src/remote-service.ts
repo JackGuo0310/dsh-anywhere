@@ -107,19 +107,20 @@ export class RemoteAccessService extends TypertRemoteService {
   async changePassword(request: PasswordChangeRequest): Promise<unknown> {
     if (!this.gateway) throw new Error('Gateway is not running.')
     if (!this.config.adminPasswordSecretRef) throw new Error('Administrator password credential reference is not configured.')
-    if (!request || typeof request.currentPassword !== 'string' || typeof request.newPassword !== 'string') {
-      throw new Error('Current and new administrator passwords are required.')
-    }
-    const nextHash = await this.gateway.changeAdminPassword(request.currentPassword, request.newPassword)
+    if (!request || typeof request.newPassword !== 'string') throw new Error('A new administrator password is required.')
+    const initializing = !this.gateway.passwordRecord()
+    if (!initializing && typeof request.currentPassword !== 'string') throw new Error('The current administrator password is required.')
+    const nextHash = initializing
+      ? await this.gateway.bootstrapAdmin(request.newPassword)
+      : await this.gateway.changeAdminPassword(request.currentPassword as string, request.newPassword)
     try {
-      const credentials = this.credentials()
-      await credentials.set(this.config.adminPasswordSecretRef, nextHash)
+      await this.credentials().set(this.config.adminPasswordSecretRef, nextHash)
     } catch (error) {
       // Do not leave a runtime-only password after credential persistence fails.
       await this.stop()
       throw error
     }
-    return { changed: true, sessionsRevoked: true }
+    return { changed: true, initialized: initializing, sessionsRevoked: !initializing }
   }
 
   @Remote('revokeAllSessions')

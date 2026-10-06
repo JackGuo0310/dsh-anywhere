@@ -11,14 +11,22 @@ test('password hash verifies only the original password', async () => {
   const hash = await hashPassword('correct horse battery staple')
   assert.equal(await verifyPassword('correct horse battery staple', hash), true)
   assert.equal(await verifyPassword('incorrect horse battery staple', hash), false)
-  await assert.rejects(() => hashPassword('short'), /12 characters/)
+  await assert.rejects(() => hashPassword('short'), /10 characters/)
+})
+
+test('password bootstrap requires ten characters and can run only once', async () => {
+  const auth = new AuthService({ sessionTtlMinutes: 60, secureCookie: false, trustedProxies: [] })
+  await assert.rejects(() => auth.bootstrap('too-short'), /10 characters/i)
+  await auth.bootstrap('ten-chars!')
+  assert.equal(auth.configured, true)
+  await assert.rejects(() => auth.bootstrap('another password'), /already configured/i)
 })
 
 test('password change verifies the current password and revokes sessions', async () => {
   const auth = new AuthService({ passwordHash: await hashPassword('correct horse battery staple'), sessionTtlMinutes: 60, secureCookie: false, trustedProxies: [] })
   const session = auth.sessions.create(60)
   await assert.rejects(() => auth.changePassword('wrong password', 'another correct horse battery staple'), /invalid/i)
-  await assert.rejects(() => auth.changePassword('correct horse battery staple', 'short'), /12 characters/i)
+  await assert.rejects(() => auth.changePassword('correct horse battery staple', 'short'), /10 characters/i)
   const replacement = await auth.changePassword('correct horse battery staple', 'another correct horse battery staple')
   assert.equal(await verifyPassword('another correct horse battery staple', replacement), true)
   assert.equal(auth.sessions.get(session.id), undefined)

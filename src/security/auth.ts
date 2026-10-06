@@ -29,7 +29,7 @@ export class AuthService {
 
   async changePassword(currentPassword: string, nextPassword: string): Promise<string> {
     if (!this.passwordHash || !(await verifyPassword(currentPassword, this.passwordHash))) throw new Error('Current administrator password is invalid.')
-    if (nextPassword.length < 12) throw new Error('New administrator password must be at least 12 characters.')
+    if (nextPassword.length < 10) throw new Error('New administrator password must be at least 10 characters.')
     const nextHash = await hashPassword(nextPassword)
     this.passwordHash = nextHash
     this.revokeAll()

@@ -57,8 +57,8 @@ export function assertSafeConfig(value) {
     if (config.enabled && !config.adminPasswordSecretRef) {
         throw new Error('Enabled gateway requires an administrator password credential reference.');
     }
-    if (external && (!config.adminConfigured || !config.adminPasswordSecretRef)) {
-        throw new Error('External listener requires a configured administrator account and password credential reference.');
+    if (external && !config.adminPasswordSecretRef) {
+        throw new Error('External listener requires an administrator password credential reference.');
     }
     if (config.frp && config.customCommandEnabled) {
         throw new Error('Configure exactly one tunnel provider: FRP or custom command.');

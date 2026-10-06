@@ -33,7 +33,6 @@ export class RemoteGateway {
 
   async start(): Promise<void> {
     if (this.server) return
-    if (!this.auth.configured) throw new Error('Remote gateway cannot start until an administrator password hash is provisioned.')
     this.server = createServer((req, res) => this.handle(req, res))
     this.server.on('upgrade', (req, socket, head) => this.handleUpgrade(req, socket, head))
     await new Promise<void>((resolve, reject) => {
@@ -52,7 +51,10 @@ export class RemoteGateway {
     await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()))
   }
 
-  async bootstrapAdmin(password: string): Promise<void> { await this.auth.bootstrap(password) }
+  async bootstrapAdmin(password: string): Promise<string> {
+    await this.auth.bootstrap(password)
+    return this.auth.passwordRecord()!
+  }
   async changeAdminPassword(currentPassword: string, nextPassword: string): Promise<string> { return this.auth.changePassword(currentPassword, nextPassword) }
   passwordRecord(): string | undefined { return this.auth.passwordRecord() }
   revokeAllSessions(): void { this.auth.revokeAll() }

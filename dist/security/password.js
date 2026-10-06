@@ -14,8 +14,8 @@ const P = 1;
  * leave this module.
  */
 export async function hashPassword(password) {
-    if (password.length < 12)
-        throw new Error('Administrator password must contain at least 12 characters.');
+    if (password.length < 10)
+        throw new Error('Administrator password must contain at least 10 characters.');
     const salt = randomBytes(16);
     const derived = await scrypt(password, salt, KEY_LENGTH, { N, r: R, p: P, maxmem: 256 * N * R });
     return `scrypt$v1$${N}$${R}$${P}$${salt.toString('base64url')}$${derived.toString('base64url')}`;

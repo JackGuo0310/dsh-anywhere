@@ -105,20 +105,22 @@ function SettingsSection(props: { t: Translator, call: HostCall, React: ReactLik
   React.useEffect(() => { void invoke('status') }, [invoke])
 
   const changePassword = React.useCallback(async () => {
-    if (newPassword.length < 12) { setFeedback({ tone: 'error', message: t('passwordTooShort') }); return }
+    if (newPassword.length < 10) { setFeedback({ tone: 'error', message: t('passwordTooShort') }); return }
     if (newPassword !== confirmPassword) { setFeedback({ tone: 'error', message: t('passwordMismatch') }); return }
     setBusy('changePassword')
     setFeedback(undefined)
     try {
+      const initializing = !gatewayStatus?.administratorConfigured
       await call('changePassword', { request: { currentPassword, newPassword } })
       setCurrentPassword(''); setNewPassword(''); setConfirmPassword('')
-      setFeedback({ tone: 'success', message: t('passwordChanged') })
+      setGatewayStatus(objectOf(await call('status')))
+      setFeedback({ tone: 'success', message: t(initializing ? 'passwordInitialized' : 'passwordChanged') })
     } catch (error) {
       setFeedback({ tone: 'error', message: error instanceof Error ? error.message : String(error) })
     } finally {
       setBusy(undefined)
     }
-  }, [call, confirmPassword, currentPassword, newPassword, t])
+  }, [call, confirmPassword, currentPassword, gatewayStatus?.administratorConfigured, newPassword, t])
 
   const configured = objectOf(gatewayStatus?.configured)
   const tunnel = objectOf(gatewayStatus?.tunnel)
@@ -151,13 +153,13 @@ function SettingsSection(props: { t: Translator, call: HostCall, React: ReactLik
       feedback ? h('div', { className: 'dsh-remote-feedback', 'data-tone': feedback.tone, role: feedback.tone === 'error' ? 'alert' : 'status' }, feedback.message) : null,
     ),
     h('section', { className: 'dsh-remote-card' },
-      h('h2', null, t('changePasswordTitle')), h('p', null, t('changePasswordBody')),
+      h('h2', null, t(gatewayStatus?.administratorConfigured ? 'changePasswordTitle' : 'initializePasswordTitle')), h('p', null, t(gatewayStatus?.administratorConfigured ? 'changePasswordBody' : 'initializePasswordBody')),
       h('div', { className: 'dsh-remote-fields' },
-        h('label', null, t('currentPassword'), h('input', { type: 'password', autoComplete: 'current-password', value: currentPassword, disabled: !!busy, onChange: (event: { target: { value: string } }) => setCurrentPassword(event.target.value) })),
+        gatewayStatus?.administratorConfigured ? h('label', null, t('currentPassword'), h('input', { type: 'password', autoComplete: 'current-password', value: currentPassword, disabled: !!busy, onChange: (event: { target: { value: string } }) => setCurrentPassword(event.target.value) })) : null,
         h('label', null, t('newPassword'), h('input', { type: 'password', autoComplete: 'new-password', value: newPassword, disabled: !!busy, onChange: (event: { target: { value: string } }) => setNewPassword(event.target.value) })),
         h('label', null, t('confirmPassword'), h('input', { type: 'password', autoComplete: 'new-password', value: confirmPassword, disabled: !!busy, onChange: (event: { target: { value: string } }) => setConfirmPassword(event.target.value) })),
       ),
-      h('div', { className: 'dsh-remote-actions' }, h('button', { className: 'dsh-remote-button dsh-remote-button-primary', type: 'button', disabled: !!busy || !currentPassword || !newPassword || !confirmPassword, onClick: changePassword }, t('changePassword'))),
+      h('div', { className: 'dsh-remote-actions' }, h('button', { className: 'dsh-remote-button dsh-remote-button-primary', type: 'button', disabled: !!busy || (!!gatewayStatus?.administratorConfigured && !currentPassword) || !newPassword || !confirmPassword, onClick: changePassword }, t(gatewayStatus?.administratorConfigured ? 'changePassword' : 'initializePassword'))),
     ),
     h('section', { className: 'dsh-remote-card' }, h('h2', null, t('configurationTitle')), h('p', null, t('configurationBody'))),
   )

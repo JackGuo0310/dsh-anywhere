@@ -35,13 +35,17 @@
       "tunnelStarted": "Tunnel started.",
       "tunnelRestarted": "Tunnel restarted.",
       "sessionsRevoked": "All remote sessions were revoked.",
+      "initializePasswordTitle": "Set initial administrator password",
+      "initializePasswordBody": "No current password is required the first time. Set a password of at least 10 characters to enable remote access.",
+      "initializePassword": "Set password",
+      "passwordInitialized": "Administrator password configured.",
       "changePasswordTitle": "Change administrator password",
       "changePasswordBody": "Verify the current password, save its replacement, and revoke all remote sessions.",
       "currentPassword": "Current password",
-      "newPassword": "New password (minimum 12 characters)",
+      "newPassword": "New password (minimum 10 characters)",
       "confirmPassword": "Confirm new password",
       "changePassword": "Change password",
-      "passwordTooShort": "The new password must be at least 12 characters.",
+      "passwordTooShort": "The new password must be at least 10 characters.",
       "passwordMismatch": "New passwords do not match.",
       "passwordChanged": "Password changed. All remote sessions were revoked.",
       "configurationTitle": "Advanced configuration",
@@ -79,13 +83,17 @@
       "tunnelStarted": "\u96A7\u9053\u5DF2\u542F\u52A8\u3002",
       "tunnelRestarted": "\u96A7\u9053\u5DF2\u91CD\u542F\u3002",
       "sessionsRevoked": "\u6240\u6709\u8FDC\u7A0B\u4F1A\u8BDD\u5DF2\u64A4\u9500\u3002",
+      "initializePasswordTitle": "\u8BBE\u7F6E\u521D\u59CB\u7BA1\u7406\u5458\u5BC6\u7801",
+      "initializePasswordBody": "\u9996\u6B21\u4F7F\u7528\u65E0\u9700\u5F53\u524D\u5BC6\u7801\u3002\u8BF7\u8BBE\u7F6E\u81F3\u5C11 10 \u4E2A\u5B57\u7B26\u7684\u5BC6\u7801\uFF0C\u4FDD\u5B58\u540E\u5373\u53EF\u542F\u7528\u8FDC\u7A0B\u8BBF\u95EE\u3002",
+      "initializePassword": "\u8BBE\u7F6E\u5BC6\u7801",
+      "passwordInitialized": "\u7BA1\u7406\u5458\u5BC6\u7801\u5DF2\u8BBE\u7F6E\u3002",
       "changePasswordTitle": "\u4FEE\u6539\u7BA1\u7406\u5458\u5BC6\u7801",
       "changePasswordBody": "\u9A8C\u8BC1\u5F53\u524D\u5BC6\u7801\u540E\u4FDD\u5B58\u65B0\u5BC6\u7801\uFF0C\u5E76\u64A4\u9500\u6240\u6709\u8FDC\u7A0B\u4F1A\u8BDD\u3002",
       "currentPassword": "\u5F53\u524D\u5BC6\u7801",
-      "newPassword": "\u65B0\u5BC6\u7801\uFF08\u81F3\u5C11 12 \u4E2A\u5B57\u7B26\uFF09",
+      "newPassword": "\u65B0\u5BC6\u7801\uFF08\u81F3\u5C11 10 \u4E2A\u5B57\u7B26\uFF09",
       "confirmPassword": "\u786E\u8BA4\u65B0\u5BC6\u7801",
       "changePassword": "\u4FEE\u6539\u5BC6\u7801",
-      "passwordTooShort": "\u65B0\u5BC6\u7801\u81F3\u5C11\u9700\u8981 12 \u4E2A\u5B57\u7B26\u3002",
+      "passwordTooShort": "\u65B0\u5BC6\u7801\u81F3\u5C11\u9700\u8981 10 \u4E2A\u5B57\u7B26\u3002",
       "passwordMismatch": "\u4E24\u6B21\u8F93\u5165\u7684\u65B0\u5BC6\u7801\u4E0D\u4E00\u81F4\u3002",
       "passwordChanged": "\u5BC6\u7801\u5DF2\u4FEE\u6539\uFF0C\u6240\u6709\u8FDC\u7A0B\u4F1A\u8BDD\u5DF2\u64A4\u9500\u3002",
       "configurationTitle": "\u9AD8\u7EA7\u914D\u7F6E",
@@ -163,7 +171,7 @@
       void invoke("status");
     }, [invoke]);
     const changePassword = React.useCallback(async () => {
-      if (newPassword.length < 12) {
+      if (newPassword.length < 10) {
         setFeedback({ tone: "error", message: t("passwordTooShort") });
         return;
       }
@@ -174,17 +182,19 @@
       setBusy("changePassword");
       setFeedback(void 0);
       try {
+        const initializing = !gatewayStatus?.administratorConfigured;
         await call("changePassword", { request: { currentPassword, newPassword } });
         setCurrentPassword("");
         setNewPassword("");
         setConfirmPassword("");
-        setFeedback({ tone: "success", message: t("passwordChanged") });
+        setGatewayStatus(objectOf(await call("status")));
+        setFeedback({ tone: "success", message: t(initializing ? "passwordInitialized" : "passwordChanged") });
       } catch (error) {
         setFeedback({ tone: "error", message: error instanceof Error ? error.message : String(error) });
       } finally {
         setBusy(void 0);
       }
-    }, [call, confirmPassword, currentPassword, newPassword, t]);
+    }, [call, confirmPassword, currentPassword, gatewayStatus?.administratorConfigured, newPassword, t]);
     const configured = objectOf(gatewayStatus?.configured);
     const tunnel = objectOf(gatewayStatus?.tunnel);
     const statusRows = [
@@ -228,16 +238,16 @@
       h(
         "section",
         { className: "dsh-remote-card" },
-        h("h2", null, t("changePasswordTitle")),
-        h("p", null, t("changePasswordBody")),
+        h("h2", null, t(gatewayStatus?.administratorConfigured ? "changePasswordTitle" : "initializePasswordTitle")),
+        h("p", null, t(gatewayStatus?.administratorConfigured ? "changePasswordBody" : "initializePasswordBody")),
         h(
           "div",
           { className: "dsh-remote-fields" },
-          h("label", null, t("currentPassword"), h("input", { type: "password", autoComplete: "current-password", value: currentPassword, disabled: !!busy, onChange: (event) => setCurrentPassword(event.target.value) })),
+          gatewayStatus?.administratorConfigured ? h("label", null, t("currentPassword"), h("input", { type: "password", autoComplete: "current-password", value: currentPassword, disabled: !!busy, onChange: (event) => setCurrentPassword(event.target.value) })) : null,
           h("label", null, t("newPassword"), h("input", { type: "password", autoComplete: "new-password", value: newPassword, disabled: !!busy, onChange: (event) => setNewPassword(event.target.value) })),
           h("label", null, t("confirmPassword"), h("input", { type: "password", autoComplete: "new-password", value: confirmPassword, disabled: !!busy, onChange: (event) => setConfirmPassword(event.target.value) }))
         ),
-        h("div", { className: "dsh-remote-actions" }, h("button", { className: "dsh-remote-button dsh-remote-button-primary", type: "button", disabled: !!busy || !currentPassword || !newPassword || !confirmPassword, onClick: changePassword }, t("changePassword")))
+        h("div", { className: "dsh-remote-actions" }, h("button", { className: "dsh-remote-button dsh-remote-button-primary", type: "button", disabled: !!busy || !!gatewayStatus?.administratorConfigured && !currentPassword || !newPassword || !confirmPassword, onClick: changePassword }, t(gatewayStatus?.administratorConfigured ? "changePassword" : "initializePassword")))
       ),
       h("section", { className: "dsh-remote-card" }, h("h2", null, t("configurationTitle")), h("p", null, t("configurationBody")))
     );
