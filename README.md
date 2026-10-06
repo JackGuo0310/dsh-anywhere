@@ -30,11 +30,11 @@
 
 ## 界面配置
 
-设置页可直接启用网关、选择仅本机/局域网/Tailscale 模式，并配置网关端口与 DSH 原始端口。保存操作通过 DSH `configEditor` 持久化并应用，无需手工编辑 `cordis.patch.yml`。公网隧道及凭据引用等高级参数仍保留在配置文件中。
+所有部署配置都可在设置页完成，无需手工编辑 `cordis.patch.yml`：网关开关与监听、DSH 目标、仅本机/局域网/Tailscale/公网隧道模式、HTTPS 公网地址、可信代理、会话期限、请求体限制、FRP、自定义命令及凭据引用。FRP Token 与 STCP 密钥可直接在界面安全写入 DSH credentials，读取时只返回是否已配置，不会把密钥回显到浏览器。保存操作通过 DSH `configEditor` 校验、持久化并应用。
 
 ## 版本兼容性
 
-当前 `v0.1.11` 锁定 DeepSeek Harness `0.2.1-alpha.1` 运行时：
+当前 `v0.1.12` 锁定 DeepSeek Harness `0.2.1-alpha.1` 运行时：
 
 - `@deepseek-ai/cordis`：`~4.0.5-alpha.1`
 - `@deepseek-ai/dsh-credentials`：`0.2.1-alpha.1`
@@ -44,29 +44,30 @@
 
 ## 安装（Git tag）
 
-`v0.1.11` 尚未发布到 npm。可在目标机器使用 Git tag 安装：
+`v0.1.12` 尚未发布到 npm。可在目标机器使用 Git tag 安装：
 
 ```powershell
 # dsh 会将 bundle 安装到指定 profile；按你的实际 profile 名替换 web。
-dsh plugin --profile web add https://github.com/JackGuo0310/dsh-anywhere.git#v0.1.11
+dsh plugin --profile web add https://github.com/JackGuo0310/dsh-anywhere.git#v0.1.12
 ```
 
 也可先克隆该 tag 并从本地目录安装：
 
 ```powershell
-git clone --branch v0.1.11 --depth 1 https://github.com/JackGuo0310/dsh-anywhere.git
+git clone --branch v0.1.12 --depth 1 https://github.com/JackGuo0310/dsh-anywhere.git
 dsh plugin --profile web add .\dsh-anywhere
 ```
 
 安装前，目标 DSH 环境需要已经具备上述 peer 依赖。安装操作会修改指定 profile；本开发过程没有安装或启用到当前 DSH profile。
 
-安装后，通过 DSH 设置页配置 `dsh-remote-access`。管理员密码必须先以 `scrypt$v1$...` 哈希写入 DSH credentials 服务，并将对应 credential reference 填入 `adminPasswordSecretRef`；原始密码不会写入 YAML、日志或插件状态。
+安装后，进入 DSH 设置页的“远程访问网关”：
 
-1. 通过 DSH credential 管理界面或部署自动化保存管理员密码哈希，切勿将原始密码写入 YAML。
-2. 保持 DSH Web 监听 `127.0.0.1`，配置插件网关监听端口，例如 `4173`。
-3. 局域网：显式选择 `0.0.0.0` 或指定 LAN IP；浏览器访问 `http://<LAN-IP>:4173`。
-4. Tailscale：启用受控监听后使用检测到的 `100.x.y.z:4173` 或 MagicDNS。
-5. FRP：设置 `frpc` 路径、frps 地址、token secret reference、HTTPS 自定义域名；只允许来自可信 TLS 终止代理的 forwarded headers。
+1. 首次使用先设置至少 10 个字符的管理员密码。
+2. 保持 DSH 目标为 `127.0.0.1`，填入实际原始端口（例如 `3080`）。
+3. 局域网：选择“局域网”，监听 `0.0.0.0` 或指定 LAN IP；浏览器访问 `http://<LAN-IP>:4173`。
+4. Tailscale：选择对应模式，保存后使用检测到的 `100.x.y.z:4173` 或 MagicDNS。
+5. FRP：在界面选择公网隧道和 FRP，填写 `frpc`、frps、HTTPS 域名及 Token；密钥直接保存到 DSH credentials。
+6. 点击“保存并应用”。
 
 ## FRP 先决条件
 
@@ -87,7 +88,7 @@ npm test
 
 ## 平台验证
 
-- **Windows**：在 Windows Node 环境执行了 `npm run check`、`npm run build` 与 `npm test`，18/18 测试通过。
+- **Windows**：在 Windows Node 环境执行了 `npm run check`、`npm run build` 与 `npm test`，27/27 测试通过。
 - **Linux**：代码只依赖 Node 22 的跨平台模块；`spawn(..., { windowsHide: true })` 在 Linux 被 Node 忽略。尚未在真实 Linux host 上运行集成测试，发布前应执行同一命令并测试 `frpc` 生命周期。
 - 已由用户在真实 `web` profile 中安装并验证：客户端模块可正常启动，设置页可见，状态与网络诊断 RPC 可用。
 

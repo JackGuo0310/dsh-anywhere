@@ -1,6 +1,6 @@
 {
   "name": "@dsh-community/dsh-remote-access",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "description": "Authenticated remote-access gateway for the DeepSeek Harness Web GUI",
   "type": "module",
   "private": false,
