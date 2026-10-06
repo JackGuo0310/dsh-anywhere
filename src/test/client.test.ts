@@ -43,8 +43,9 @@ function bootClientModule() {
     register: (options: SlotRow) => { slots.push(options); return () => { disposals++ } },
   })
   ctx.set('locale', {
-    register: (namespace: string, locale: string, dict: Record<string, string>) => {
-      localeRegistrations.push({ namespace, locale, dict })
+    register: (namespace: string, localeOrDictionaries: string | Record<string, Record<string, string>>, dict?: Record<string, string>) => {
+      if (typeof localeOrDictionaries === 'string') localeRegistrations.push({ namespace, locale: localeOrDictionaries, dict: dict! })
+      else for (const [locale, dictionary] of Object.entries(localeOrDictionaries)) localeRegistrations.push({ namespace, locale, dict: dictionary })
       return () => { disposals++ }
     },
     bind: (namespace: string) => (key: string) => `${namespace}.${key}`,
@@ -69,7 +70,7 @@ test('client half releases slot and locale resources on disposal', async () => {
   const { ctx, getDisposals } = bootClientModule()
   const fork = await boot(ctx)
   await fork.dispose()
-  assert.equal(getDisposals(), 3)
+  assert.equal(getDisposals(), 2)
 })
 
 test('client half injects every service it reads', () => {

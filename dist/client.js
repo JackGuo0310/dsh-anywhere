@@ -263,7 +263,7 @@
       inject: ["slots", "locale", "connection"],
       apply(ctx) {
         ctx.effect(() => insertStyles());
-        for (const [locale, dict] of Object.entries(dictionaries)) ctx.effect(() => ctx.locale.register(localeNamespace, locale, dict));
+        ctx.effect(() => ctx.locale.register(localeNamespace, dictionaries));
         const t = ctx.locale.bind(localeNamespace);
         const call = (method, args) => callRemoteHost(ctx, method, args ?? {});
         ctx.effect(() => ctx.slots.inject("settings.section", () => ctx.slots.register({

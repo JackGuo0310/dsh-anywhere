@@ -15,7 +15,10 @@ type ClientContext = {
     register: (options: { name: string, id: string, order?: number, label?: () => string, inject?: () => unknown }, component: unknown) => (() => void) | void
   }
   locale: {
-    register: (namespace: string, locale: string, dict: Record<string, string>) => (() => void) | void
+    register: {
+      (namespace: string, dictionaries: Record<string, Record<string, string>>): (() => void) | void
+      (namespace: string, locale: string, dict: Record<string, string>): (() => void) | void
+    }
     bind: (namespace: string) => Translator
   }
   connection: { rpc: { call: (channel: string, endpoint: string, payload: { args: unknown }, signal?: AbortSignal) => Promise<RemoteCallResult> } }
@@ -183,7 +186,7 @@ export function createClientModule(React: ReactLike) {
     inject: ['slots', 'locale', 'connection'],
     apply(ctx: ClientContext): void {
       ctx.effect(() => insertStyles())
-      for (const [locale, dict] of Object.entries(dictionaries)) ctx.effect(() => ctx.locale.register(localeNamespace, locale, dict))
+      ctx.effect(() => ctx.locale.register(localeNamespace, dictionaries))
       const t = ctx.locale.bind(localeNamespace)
       const call: HostCall = (method, args) => callRemoteHost(ctx, method, (args as Record<string, unknown> | undefined) ?? {})
       ctx.effect(() => ctx.slots.inject('settings.section', () => ctx.slots.register({
