@@ -321,7 +321,7 @@
         const tunnelProvider = String(form.tunnelProvider);
         const frp = tunnelProvider === "frp" ? { executablePath: form.frpExecutablePath, serverAddress: form.frpServerAddress, serverPort: Number(form.frpServerPort), authMethod: form.frpAuthMethod, tokenSecretRef: form.frpAuthMethod === "token" ? form.frpTokenSecretRef : void 0, stcpSecretRef: form.frpTransport === "stcp" ? form.frpStcpSecretRef : void 0, transport: form.frpTransport, customDomain: form.frpTransport === "stcp" ? void 0 : form.frpCustomDomain, tlsEnabled: form.frpTlsEnabled, startWithDsh: form.frpStartWithDsh } : void 0;
         const config = { enabled: form.enabled, mode: form.mode, listenHost: form.listenHost, listenPort: Number(form.listenPort), target: { host: form.targetHost, port: Number(form.targetPort), protocol: form.targetProtocol }, publicBaseUrl: form.publicBaseUrl || void 0, trustedProxyCidrs: String(form.trustedProxyCidrs).split(/\r?\n|,/).map((v) => v.trim()).filter(Boolean), sessionTtlMinutes: Number(form.sessionTtlMinutes), maxRequestBodyBytes: Number(form.maxRequestBodyBytes), adminPasswordSecretRef: form.adminPasswordSecretRef, frp, customCommandEnabled: tunnelProvider === "custom", customCommand: tunnelProvider === "custom" ? { command: form.customCommand, args: String(form.customArgs).split(/\r?\n/).filter(Boolean) } : void 0 };
-        await call("saveConfig", { request: { config, secrets: { frpToken: form.frpToken, stcpSecret: form.frpStcpSecret } } });
+        await call("saveConfig", { config, secrets: { frpToken: form.frpToken, stcpSecret: form.frpStcpSecret } });
         setFeedback({ tone: "success", message: t("configurationSaved") });
         set("frpToken", "");
         set("frpStcpSecret", "");
