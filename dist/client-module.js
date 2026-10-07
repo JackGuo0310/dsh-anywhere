@@ -2,7 +2,7 @@ import { dictionaries, localeNamespace } from './locale.generated.js';
 const packageId = '@dsh-community/dsh-remote-access';
 const sectionId = 'dsh-remote-access';
 const remoteNamespace = 'dshRemoteAccess';
-const pluginVersion = '0.2.4';
+const pluginVersion = '0.2.5';
 const defaults = {
     enabled: false, local: true, lan: false, tailscale: false, tunnelEnabled: false, listenPort: '4173', targetHost: '127.0.0.1', targetPort: '3080', targetProtocol: 'http', publicBaseUrl: '', trustedProxyCidrs: '', sessionTtlMinutes: '1440', maxRequestBodyBytes: '52428800', adminPasswordSecretRef: 'DSH_REMOTE_ADMIN_HASH', tunnelProvider: 'none', frpExecutablePath: '', frpServerAddress: '', frpServerPort: '7000', frpAuthMethod: 'token', frpTokenSecretRef: 'DSH_REMOTE_FRP_TOKEN', frpToken: '', frpStcpSecretRef: 'DSH_REMOTE_FRP_STCP_SECRET', frpStcpSecret: '', frpTransport: 'https', frpCustomDomain: '', frpTlsEnabled: true, frpStartWithDsh: false, customCommand: '', customArgs: '',
 };

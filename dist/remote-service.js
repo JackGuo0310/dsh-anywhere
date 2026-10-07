@@ -235,6 +235,10 @@ let RemoteAccessService = (() => {
             return { revoked: true };
         }
         async createTunnel() {
+            // The switch decides whether the tunnel runs. The provider settings stay saved, so
+            // turning the tunnel back on needs no retyping.
+            if (!this.config.tunnelEnabled)
+                return undefined;
             if (this.config.frp) {
                 const token = await this.resolveCredential(this.config.frp.tokenSecretRef);
                 const stcpSecret = await this.resolveCredential(this.config.frp.stcpSecretRef);
