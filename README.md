@@ -34,7 +34,7 @@
 
 ## 版本兼容性
 
-当前 `v0.1.23` 锁定 DeepSeek Harness `0.2.1-alpha.1` 运行时：
+当前 `v0.1.24` 锁定 DeepSeek Harness `0.2.1-alpha.1` 运行时：
 
 - `@deepseek-ai/cordis`：`~4.0.5-alpha.1`
 - `@deepseek-ai/dsh-credentials`：`0.2.1-alpha.1`
@@ -44,17 +44,17 @@
 
 ## 安装（Git tag）
 
-`v0.1.23` 尚未发布到 npm。可在目标机器使用 Git tag 安装：
+`v0.1.24` 尚未发布到 npm。可在目标机器使用 Git tag 安装：
 
 ```powershell
 # dsh 会将 bundle 安装到指定 profile；按你的实际 profile 名替换 web。
-dsh plugin --profile web add https://github.com/JackGuo0310/dsh-anywhere.git#v0.1.23
+dsh plugin --profile web add https://github.com/JackGuo0310/dsh-anywhere.git#v0.1.24
 ```
 
 也可先克隆该 tag 并从本地目录安装：
 
 ```powershell
-git clone --branch v0.1.23 --depth 1 https://github.com/JackGuo0310/dsh-anywhere.git
+git clone --branch v0.1.24 --depth 1 https://github.com/JackGuo0310/dsh-anywhere.git
 dsh plugin --profile web add .\dsh-anywhere
 ```
 
@@ -85,13 +85,13 @@ npm run build
 npm test
 ```
 
-测试覆盖配置拒绝规则、密码哈希、会话、限速、日志脱敏、FRP 配置、Tailscale 解析、IPv6 URL、登录页面/图标、私下上游认证交换与撤销竞态、原生 RPC 同源写请求、CSRF 登出、上游重定向包含、HTTP 代理、认证 WebSocket 代理以及保存后网关在新端口重挂载。
+测试覆盖配置拒绝规则（含旧模式迁移）、密码哈希、会话、限速、日志脱敏、FRP 配置、Tailscale 解析、IPv6 URL、登录页面/图标、私下上游认证交换与撤销竞态、原生 RPC 同源写请求、CSRF 登出、上游重定向包含、HTTP 代理、认证 WebSocket 代理以及保存后网关在新端口重挂载。
 
 ## 平台验证
 
 - **Windows**：在 Windows Node 环境执行了 `npm run check`、`npm run build` 与 `npm test`，40/40 测试通过。
 - **Linux**：代码只依赖 Node 22 的跨平台模块；`spawn(..., { windowsHide: true })` 在 Linux 被 Node 忽略。尚未在真实 Linux host 上运行集成测试，发布前应执行同一命令并测试 `frpc` 生命周期。
-- 用户已在真实 `web` profile 中验证 `v0.1.23`：`0.0.0.0` 通配监听下，本机 `127.0.0.1:4173` 与 Tailscale `100.x.y.z:4173` 均可打开登录页；登录流程、favicon、保存配置热应用此前也已实测通过。局域网其他设备与 FRP 公网隧道模式尚未在真实网络验证。
+- 用户已在真实 `web` profile 中验证直连监听：`0.0.0.0` 通配下本机 `127.0.0.1:4173` 与 Tailscale `100.x.y.z:4173` 均可打开登录页；登录流程、favicon 静默、保存配置热应用均实测通过（`v0.1.23`）。局域网其他设备与 FRP 公网隧道模式尚未在真实网络验证。
 
 ## 已知限制
 

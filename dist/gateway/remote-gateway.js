@@ -197,6 +197,18 @@ export class RemoteGateway {
             res.end(req.method === 'HEAD' ? undefined : favicon);
             return;
         }
+        // Browsers fetch the web app manifest with credentials omitted, so a session check
+        // could never pass and every page load logged an unauthorized error. DSH itself
+        // serves this static file without authentication, so mirror that here.
+        if (pathname === '/manifest.webmanifest' && (req.method === 'GET' || req.method === 'HEAD')) {
+            try {
+                proxyHttp(req, res, this.config.target, this.config.maxRequestBodyBytes, undefined);
+            }
+            catch {
+                this.json(res, 502, { error: 'DSH upstream is unavailable.' });
+            }
+            return;
+        }
         if (pathname === '/_dsh_remote/login' && req.method === 'GET') {
             if (this.auth.requireSession(req)) {
                 res.writeHead(303, { location: '/' });

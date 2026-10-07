@@ -270,6 +270,10 @@ test('browser navigation opens login while APIs remain private and favicon stays
     assert.doesNotMatch(body, /Private DSH/)
     assert.equal((await fetch(`${base}/favicon.ico`)).status, 200)
     assert.equal((await fetch(`${base}/_dsh_remote/health`)).status, 200)
+    // The manifest is fetched without credentials, so it must not require a session.
+    const manifest = await fetch(`${base}/manifest.webmanifest`)
+    assert.equal(manifest.status, 200)
+    assert.match(manifest.headers.get('content-type') ?? '', /text\/html/)
     assert.equal((await fetch(`${base}/api`, { headers: { accept: 'application/json' } })).status, 401)
     assert.equal((await fetch(`${base}/app`, { method: 'POST', headers: { accept: 'text/html' } })).status, 401)
     const { cookie } = await login(base)
