@@ -90,7 +90,7 @@ npm test
 
 - **Windows**：在 Windows Node 环境执行了 `npm run check`、`npm run build` 与 `npm test`，37/37 测试通过。
 - **Linux**：代码只依赖 Node 22 的跨平台模块；`spawn(..., { windowsHide: true })` 在 Linux 被 Node 忽略。尚未在真实 Linux host 上运行集成测试，发布前应执行同一命令并测试 `frpc` 生命周期。
-- 用户已在真实 `web` profile 中验证旧版本的设置页与配置保存；本版本网关的登录及 DSH 页面/RPC 为本地模拟上游集成测试，**尚未在真实 DSH 浏览器中端到端验证**，也没有将本开发 checkout 安装进活动 profile。
+- 用户已在真实 `web` profile 中验证 `v0.1.21`：安装后重启 DSH，网关在 `http://127.0.0.1:4173` 显示中文登录页，登录成功可进入 DSH，`favicon.ico` 不再产生未授权噪音，保存配置后端口/开关即时生效且无需再次重启。LAN/Tailscale 与 FRP 公网隧道模式尚未在真实网络验证。
 
 ## 已知限制
 
