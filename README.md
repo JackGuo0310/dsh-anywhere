@@ -84,11 +84,11 @@ npm run build
 npm test
 ```
 
-测试覆盖配置拒绝规则、密码哈希、会话、限速、日志脱敏、FRP 配置、Tailscale 解析、IPv6 URL、登录页面/图标、私下上游认证交换、原生 RPC 同源写请求、CSRF 登出、HTTP 代理及认证 WebSocket 代理。
+测试覆盖配置拒绝规则、密码哈希、会话、限速、日志脱敏、FRP 配置、Tailscale 解析、IPv6 URL、登录页面/图标、私下上游认证交换与撤销竞态、原生 RPC 同源写请求、CSRF 登出、上游重定向包含、HTTP 代理、认证 WebSocket 代理以及保存后网关在新端口重挂载。
 
 ## 平台验证
 
-- **Windows**：在 Windows Node 环境执行了 `npm run check`、`npm run build` 与 `npm test`，36/36 测试通过。
+- **Windows**：在 Windows Node 环境执行了 `npm run check`、`npm run build` 与 `npm test`，37/37 测试通过。
 - **Linux**：代码只依赖 Node 22 的跨平台模块；`spawn(..., { windowsHide: true })` 在 Linux 被 Node 忽略。尚未在真实 Linux host 上运行集成测试，发布前应执行同一命令并测试 `frpc` 生命周期。
 - 用户已在真实 `web` profile 中验证旧版本的设置页与配置保存；本版本网关的登录及 DSH 页面/RPC 为本地模拟上游集成测试，**尚未在真实 DSH 浏览器中端到端验证**，也没有将本开发 checkout 安装进活动 profile。
 
