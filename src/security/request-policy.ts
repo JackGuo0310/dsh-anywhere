@@ -74,16 +74,21 @@ export function effectiveAuthority(req: IncomingMessage, trustedProxies: readonl
   return candidate ? canonicalAuthority(candidate) : undefined
 }
 
-export function originAllowed(req: IncomingMessage, allowedAuthorities: readonly string[], trustedProxies: readonly string[]): boolean {
-  const method = req.method?.toUpperCase() ?? 'GET'
-  if (['GET', 'HEAD', 'OPTIONS'].includes(method)) return true
+export function websocketOriginAllowed(req: IncomingMessage, allowedAuthorities: readonly string[], trustedProxies: readonly string[]): boolean {
   const origin = req.headers.origin
   if (!origin || typeof origin !== 'string') return false
   try {
     const parsed = new URL(origin)
     const authority = effectiveAuthority(req, trustedProxies)
-    return !!authority && allowedAuthorities.includes(parsed.host.toLowerCase()) && parsed.host.toLowerCase() === authority
+    return (parsed.protocol === 'http:' || parsed.protocol === 'https:') && parsed.origin === origin && !!authority
+      && allowedAuthorities.includes(parsed.host.toLowerCase()) && parsed.host.toLowerCase() === authority
   } catch { return false }
+}
+
+export function originAllowed(req: IncomingMessage, allowedAuthorities: readonly string[], trustedProxies: readonly string[]): boolean {
+  const method = req.method?.toUpperCase() ?? 'GET'
+  if (['GET', 'HEAD', 'OPTIONS'].includes(method)) return true
+  return websocketOriginAllowed(req, allowedAuthorities, trustedProxies)
 }
 
 export function hostAllowed(req: IncomingMessage, allowedAuthorities: readonly string[], trustedProxies: readonly string[]): boolean {

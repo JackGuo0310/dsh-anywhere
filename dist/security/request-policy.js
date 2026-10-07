@@ -83,21 +83,25 @@ export function effectiveAuthority(req, trustedProxies) {
     const candidate = typeof forwarded === 'string' ? forwarded.split(',')[0].trim() : req.headers.host;
     return candidate ? canonicalAuthority(candidate) : undefined;
 }
-export function originAllowed(req, allowedAuthorities, trustedProxies) {
-    const method = req.method?.toUpperCase() ?? 'GET';
-    if (['GET', 'HEAD', 'OPTIONS'].includes(method))
-        return true;
+export function websocketOriginAllowed(req, allowedAuthorities, trustedProxies) {
     const origin = req.headers.origin;
     if (!origin || typeof origin !== 'string')
         return false;
     try {
         const parsed = new URL(origin);
         const authority = effectiveAuthority(req, trustedProxies);
-        return !!authority && allowedAuthorities.includes(parsed.host.toLowerCase()) && parsed.host.toLowerCase() === authority;
+        return (parsed.protocol === 'http:' || parsed.protocol === 'https:') && parsed.origin === origin && !!authority
+            && allowedAuthorities.includes(parsed.host.toLowerCase()) && parsed.host.toLowerCase() === authority;
     }
     catch {
         return false;
     }
+}
+export function originAllowed(req, allowedAuthorities, trustedProxies) {
+    const method = req.method?.toUpperCase() ?? 'GET';
+    if (['GET', 'HEAD', 'OPTIONS'].includes(method))
+        return true;
+    return websocketOriginAllowed(req, allowedAuthorities, trustedProxies);
 }
 export function hostAllowed(req, allowedAuthorities, trustedProxies) {
     const authority = effectiveAuthority(req, trustedProxies);

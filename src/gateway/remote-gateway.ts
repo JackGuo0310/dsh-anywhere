@@ -1,8 +1,11 @@
+import { createHash } from 'node:crypto'
+import { readFileSync } from 'node:fs'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import { URL } from 'node:url'
 import type { RemoteAccessConfig } from '../config.js'
 import { AuthService } from '../security/auth.js'
-import { hostAllowed, originAllowed } from '../security/request-policy.js'
+import { hostAllowed, originAllowed, websocketOriginAllowed } from '../security/request-policy.js'
+import { loginPage } from './login-page.js'
 import { proxyHttp, bridgeWebSocket } from './proxy.js'
 
 const SECURITY_HEADERS: Record<string, string> = {
@@ -15,8 +18,19 @@ const SECURITY_HEADERS: Record<string, string> = {
   'cache-control': 'no-store'
 }
 
+const favicon = readFileSync(new URL('../../icon.svg', import.meta.url))
+const loginScript = loginPage.match(/<script>([\s\S]*?)<\/script>/)?.[1]
+if (!loginScript) throw new Error('Gateway login script is missing.')
+const loginScriptHash = createHash('sha256').update(loginScript).digest('base64')
+const loginCsp = `default-src 'none'; script-src 'sha256-${loginScriptHash}'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'`
+
+function htmlNavigation(req: IncomingMessage): boolean {
+  return req.method === 'GET' && typeof req.headers.accept === 'string' && req.headers.accept.split(',').some((type) => type.trim().startsWith('text/html'))
+}
+
 export class RemoteGateway {
   private server: Server | undefined
+  private readonly sockets = new Set<import('node:net').Socket>()
   private readonly auth: AuthService
   private readonly allowedAuthorities: string[]
 
@@ -34,20 +48,33 @@ export class RemoteGateway {
   async start(): Promise<void> {
     if (this.server) return
     this.server = createServer((req, res) => this.handle(req, res))
-    this.server.on('upgrade', (req, socket, head) => this.handleUpgrade(req, socket, head))
-    await new Promise<void>((resolve, reject) => {
-      this.server!.once('error', reject)
-      this.server!.listen(this.config.listenPort, this.config.listenHost, () => {
-        this.server!.off('error', reject)
-        resolve()
-      })
+    this.server.on('connection', (socket) => {
+      this.sockets.add(socket)
+      socket.once('close', () => this.sockets.delete(socket))
     })
+    this.server.on('upgrade', (req, socket, head) => this.handleUpgrade(req, socket, head))
+    const server = this.server
+    try {
+      await new Promise<void>((resolve, reject) => {
+        server.once('error', reject)
+        server.listen(this.config.listenPort, this.config.listenHost, () => {
+          server.off('error', reject)
+          resolve()
+        })
+      })
+    } catch (error) {
+      server.removeAllListeners()
+      this.server = undefined
+      throw error
+    }
   }
 
   async stop(): Promise<void> {
     const server = this.server
     this.server = undefined
     if (!server) return
+    server.closeAllConnections()
+    for (const socket of this.sockets) socket.destroy()
     await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()))
   }
 
@@ -64,6 +91,17 @@ export class RemoteGateway {
     this.writeSecurity(res)
     res.writeHead(status, { 'content-type': 'application/json; charset=utf-8' })
     res.end(JSON.stringify(body))
+  }
+
+  private showLogin(res: ServerResponse): void {
+    res.setHeader('content-security-policy', loginCsp)
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
+    res.end(loginPage)
+  }
+
+  private loginRedirect(res: ServerResponse, path: string): void {
+    res.writeHead(303, { location: `/_dsh_remote/login?next=${encodeURIComponent(path)}` })
+    res.end()
   }
 
   private async readJson(req: IncomingMessage): Promise<Record<string, unknown>> {
@@ -86,6 +124,19 @@ export class RemoteGateway {
     if (!hostAllowed(req, this.allowedAuthorities, this.config.trustedProxyCidrs)) return this.json(res, 421, { error: 'Unrecognized Host header.' })
     const pathname = new URL(req.url ?? '/', 'http://gateway.invalid').pathname
     if (pathname === '/_dsh_remote/health') return this.json(res, 200, { status: 'ok' })
+    if (pathname === '/favicon.ico' && (req.method === 'GET' || req.method === 'HEAD')) {
+      res.writeHead(200, { 'content-type': 'image/svg+xml; charset=utf-8' })
+      res.end(req.method === 'HEAD' ? undefined : favicon)
+      return
+    }
+    if (pathname === '/_dsh_remote/login' && req.method === 'GET') {
+      if (this.auth.requireSession(req)) {
+        res.writeHead(303, { location: '/' })
+        res.end()
+        return
+      }
+      return this.showLogin(res)
+    }
     if (pathname === '/_dsh_remote/login' && req.method === 'POST') {
       if (!originAllowed(req, this.allowedAuthorities, this.config.trustedProxyCidrs)) return this.json(res, 403, { error: 'Origin check failed.' })
       try {
@@ -101,7 +152,10 @@ export class RemoteGateway {
       this.auth.logout(req, res)
       return this.json(res, 204, {})
     }
-    if (!this.auth.requireSession(req)) return this.json(res, 401, { error: 'Login required.' })
+    if (!this.auth.requireSession(req)) {
+      if (htmlNavigation(req)) return this.loginRedirect(res, req.url ?? '/')
+      return this.json(res, 401, { error: 'Login required.' })
+    }
     if (!this.auth.requireCsrf(req)) return this.json(res, 403, { error: 'CSRF check failed.' })
     const declaredLength = Number(req.headers['content-length'] ?? 0)
     if (Number.isFinite(declaredLength) && declaredLength > this.config.maxRequestBodyBytes) return this.json(res, 413, { error: 'Request body exceeds configured limit.' })
@@ -109,7 +163,7 @@ export class RemoteGateway {
   }
 
   private handleUpgrade(req: IncomingMessage, socket: import('node:stream').Duplex, head: Buffer): void {
-    if (!hostAllowed(req, this.allowedAuthorities, this.config.trustedProxyCidrs) || !originAllowed(req, this.allowedAuthorities, this.config.trustedProxyCidrs) || !this.auth.requireSession(req)) {
+    if (!hostAllowed(req, this.allowedAuthorities, this.config.trustedProxyCidrs) || !websocketOriginAllowed(req, this.allowedAuthorities, this.config.trustedProxyCidrs) || !this.auth.requireSession(req)) {
       socket.write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n')
       socket.destroy()
       return

@@ -2,6 +2,7 @@ import type { RemoteAccessConfig } from '../config.js';
 export declare class RemoteGateway {
     private readonly config;
     private server;
+    private readonly sockets;
     private readonly auth;
     private readonly allowedAuthorities;
     constructor(config: RemoteAccessConfig, passwordHash?: string);
@@ -13,6 +14,8 @@ export declare class RemoteGateway {
     revokeAllSessions(): void;
     private writeSecurity;
     private json;
+    private showLogin;
+    private loginRedirect;
     private readJson;
     private handle;
     private handleUpgrade;

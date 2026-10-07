@@ -88,6 +88,40 @@ test('gateway authenticates then proxies HTTP and enforces CSRF logout', async (
   }
 })
 
+test('browser navigation opens login while APIs remain private and favicon stays quiet', async () => {
+  const upstream = createServer((_req, res) => { res.writeHead(200, { 'content-type': 'text/html' }); res.end('<h1>Private DSH</h1>') })
+  const upstreamPort = await listen(upstream)
+  const probe = createServer()
+  const gatewayPort = await listen(probe)
+  await new Promise<void>((resolve, reject) => probe.close((error) => error ? reject(error) : resolve()))
+  const gateway = new RemoteGateway(config(upstreamPort, gatewayPort), await hashPassword('correct horse battery staple'))
+  await gateway.start()
+  const base = `http://127.0.0.1:${gatewayPort}`
+  try {
+    const navigation = await fetch(`${base}/app?tab=2`, { headers: { accept: 'text/html,application/xhtml+xml' }, redirect: 'manual' })
+    assert.equal(navigation.status, 303)
+    assert.equal(navigation.headers.get('location'), '/_dsh_remote/login?next=%2Fapp%3Ftab%3D2')
+    const loginPage = await fetch(`${base}${navigation.headers.get('location')}`)
+    assert.equal(loginPage.status, 200)
+    assert.match(loginPage.headers.get('content-type') ?? '', /text\/html/)
+    assert.match(loginPage.headers.get('content-security-policy') ?? '', /script-src 'sha256-/)
+    const body = await loginPage.text()
+    assert.match(body, /登录远程访问网关/)
+    assert.match(body, /_dsh_remote\/login/)
+    assert.doesNotMatch(body, /Private DSH/)
+    assert.equal((await fetch(`${base}/favicon.ico`)).status, 200)
+    assert.equal((await fetch(`${base}/_dsh_remote/health`)).status, 200)
+    assert.equal((await fetch(`${base}/api`, { headers: { accept: 'application/json' } })).status, 401)
+    assert.equal((await fetch(`${base}/app`, { method: 'POST', headers: { accept: 'text/html' } })).status, 401)
+    const { cookie } = await login(base)
+    assert.match(await (await fetch(`${base}/app`, { headers: { cookie, accept: 'text/html' } })).text(), /Private DSH/)
+    assert.equal((await fetch(`${base}/_dsh_remote/login`, { headers: { cookie }, redirect: 'manual' })).headers.get('location'), '/')
+  } finally {
+    await gateway.stop()
+    await new Promise<void>((resolve, reject) => upstream.close((error) => error ? reject(error) : resolve()))
+  }
+})
+
 test('gateway bridges authenticated WebSocket traffic', async () => {
   const upstream = createServer()
   const websocket = new WebSocketServer({ server: upstream })
@@ -109,6 +143,8 @@ test('gateway bridges authenticated WebSocket traffic', async () => {
     })
     assert.equal(echoed, 'echo:hello')
     socket.close()
+    await assert.rejects(() => openSocket(`ws://127.0.0.1:${gatewayPort}/socket`, { cookie, origin: 'http://evil.example' }))
+    await assert.rejects(() => openSocket(`ws://127.0.0.1:${gatewayPort}/socket`, { cookie }))
   } finally {
     await gateway.stop()
     await new Promise<void>((resolve, reject) => upstream.close((error) => error ? reject(error) : resolve()))
