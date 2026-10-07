@@ -331,6 +331,9 @@ test('the local listener answers its alias and rejects every other Host', async 
   try {
     assert.equal((await fetch(`${base}/_dsh_remote/health`)).status, 200)
     assert.equal(await requestWithHost(gatewayPort, { host: `localhost:${gatewayPort}` }), 200)
+    // The settings page shows exactly which mode bound which address.
+    assert.deepEqual(gateway.listenAddresses(), ['127.0.0.1'])
+    assert.deepEqual(gateway.boundAuthorities().sort(), [`127.0.0.1:${gatewayPort}`, `localhost:${gatewayPort}`].sort())
     // COOP is only honoured on a trustworthy origin, so the LAN alias must not carry it.
     assert.equal((await responseWithHost(gatewayPort, { host: `127.0.0.1:${gatewayPort}` })).headers['cross-origin-opener-policy'], 'same-origin')
     assert.equal(await requestWithHost(gatewayPort, { host: `192.168.1.5:${gatewayPort}` }), 421)

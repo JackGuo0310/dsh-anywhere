@@ -6,6 +6,7 @@ export declare class RemoteGateway {
     private readonly sockets;
     private readonly auth;
     private allowedAuthorities;
+    private boundAddresses;
     private publicAuthority;
     private readonly upstreamSessions;
     private readonly pendingUpstreamSessions;
@@ -21,6 +22,8 @@ export declare class RemoteGateway {
     revokeAllSessions(): void;
     /** Addresses this gateway actually bound, for the settings page. */
     boundAuthorities(): string[];
+    /** Raw bound addresses, so the settings page can show which mode covers which address. */
+    listenAddresses(): string[];
     /** Drop cached upstream cookies whose gateway session is gone or expired. */
     private pruneUpstreamSessions;
     private privateCookie;

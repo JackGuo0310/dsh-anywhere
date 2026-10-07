@@ -45,6 +45,7 @@ export class RemoteGateway {
   private readonly sockets = new Set<import('node:net').Socket>()
   private readonly auth: AuthService
   private allowedAuthorities: string[] = []
+  private boundAddresses: string[] = []
   private publicAuthority: string | undefined
   private readonly upstreamSessions = new Map<string, string>()
   private readonly pendingUpstreamSessions = new Map<string, Promise<string>>()
@@ -67,6 +68,7 @@ export class RemoteGateway {
     // Every enabled mode shares one port, so each enabled address is its own socket and
     // the firewall still only ever needs a single port number.
     this.allowedAuthorities = [...new Set([...addresses.flatMap((address) => authorityAliases(address, this.config.listenPort)), this.publicAuthority].filter(Boolean) as string[])]
+    this.boundAddresses = addresses
     try {
       for (const address of addresses) await this.listen(address)
     } catch (error) {
@@ -99,6 +101,7 @@ export class RemoteGateway {
 
   async stop(): Promise<void> {
     const servers = this.servers.splice(0, this.servers.length)
+    this.boundAddresses = []
     this.authEpoch++
     this.upstreamSessions.clear()
     this.pendingUpstreamSessions.clear()
@@ -126,6 +129,8 @@ export class RemoteGateway {
   revokeAllSessions(): void { this.authEpoch++; this.auth.revokeAll(); this.upstreamSessions.clear(); this.pendingUpstreamSessions.clear(); this.sessionGenerations.clear() }
   /** Addresses this gateway actually bound, for the settings page. */
   boundAuthorities(): string[] { return [...this.allowedAuthorities] }
+  /** Raw bound addresses, so the settings page can show which mode covers which address. */
+  listenAddresses(): string[] { return [...this.boundAddresses] }
 
   /** Drop cached upstream cookies whose gateway session is gone or expired. */
   private pruneUpstreamSessions(): void {

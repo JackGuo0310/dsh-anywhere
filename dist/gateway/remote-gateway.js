@@ -42,6 +42,7 @@ export class RemoteGateway {
     sockets = new Set();
     auth;
     allowedAuthorities = [];
+    boundAddresses = [];
     publicAuthority;
     upstreamSessions = new Map();
     pendingUpstreamSessions = new Map();
@@ -66,6 +67,7 @@ export class RemoteGateway {
         // Every enabled mode shares one port, so each enabled address is its own socket and
         // the firewall still only ever needs a single port number.
         this.allowedAuthorities = [...new Set([...addresses.flatMap((address) => authorityAliases(address, this.config.listenPort)), this.publicAuthority].filter(Boolean))];
+        this.boundAddresses = addresses;
         try {
             for (const address of addresses)
                 await this.listen(address);
@@ -98,6 +100,7 @@ export class RemoteGateway {
     }
     async stop() {
         const servers = this.servers.splice(0, this.servers.length);
+        this.boundAddresses = [];
         this.authEpoch++;
         this.upstreamSessions.clear();
         this.pendingUpstreamSessions.clear();
@@ -127,6 +130,8 @@ export class RemoteGateway {
     revokeAllSessions() { this.authEpoch++; this.auth.revokeAll(); this.upstreamSessions.clear(); this.pendingUpstreamSessions.clear(); this.sessionGenerations.clear(); }
     /** Addresses this gateway actually bound, for the settings page. */
     boundAuthorities() { return [...this.allowedAuthorities]; }
+    /** Raw bound addresses, so the settings page can show which mode covers which address. */
+    listenAddresses() { return [...this.boundAddresses]; }
     /** Drop cached upstream cookies whose gateway session is gone or expired. */
     pruneUpstreamSessions() {
         if (this.upstreamSessions.size < 256)

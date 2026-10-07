@@ -153,6 +153,7 @@ let RemoteAccessService = (() => {
                 configured: redactConfig(this.config),
                 running: !!this.gateway,
                 bound: this.gateway?.boundAuthorities() ?? [],
+                addresses: this.gateway?.listenAddresses() ?? [],
                 administratorConfigured: !!passwordHash,
                 tunnel: this.tunnel ? { id: this.tunnel.id, ...this.tunnel.status() } : undefined,
             };
