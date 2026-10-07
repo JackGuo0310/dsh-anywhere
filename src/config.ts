@@ -63,6 +63,12 @@ export function isLoopbackHost(host: string): boolean {
 export function assertSafeConfig(value: unknown): RemoteAccessConfig {
   const config = configSchema.parse(value)
   const external = !isLoopbackHost(config.listenHost)
+  if (config.enabled && !isLoopbackHost(config.target.host)) {
+    throw new Error('DSH upstream target must remain on loopback to protect the private launch token and cookie.')
+  }
+  if (config.enabled && config.target.protocol !== 'http') {
+    throw new Error('DSH upstream target must use the local HTTP listener.')
+  }
   if (config.enabled && !config.adminPasswordSecretRef) {
     throw new Error('Enabled gateway requires an administrator password credential reference.')
   }

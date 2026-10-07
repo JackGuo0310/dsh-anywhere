@@ -6,6 +6,11 @@ test('enabled gateway requires an administrator password reference', () => {
   assert.throws(() => assertSafeConfig({ enabled: true }), /credential reference/i)
 })
 
+test('private upstream authentication only exchanges tokens with a local HTTP listener', () => {
+  assert.throws(() => assertSafeConfig({ enabled: true, target: { host: 'evil.example', port: 3000, protocol: 'http' }, adminPasswordSecretRef: 'DSH_REMOTE_HASH' }), /loopback/)
+  assert.throws(() => assertSafeConfig({ enabled: true, target: { host: '127.0.0.1', port: 3000, protocol: 'https' }, adminPasswordSecretRef: 'DSH_REMOTE_HASH' }), /local HTTP/)
+})
+
 test('external listener requires a password credential reference', () => {
   assert.throws(() => assertSafeConfig({ enabled: true, listenHost: '0.0.0.0' }), /credential reference/i)
   assert.equal(assertSafeConfig({ enabled: true, listenHost: '0.0.0.0', adminPasswordSecretRef: 'DSH_REMOTE_HASH' }).listenHost, '0.0.0.0')
