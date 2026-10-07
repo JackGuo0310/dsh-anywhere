@@ -5,6 +5,7 @@ export interface Session {
 }
 export declare class SessionStore {
     private readonly sessions;
+    private readonly maxSessions;
     create(ttlMinutes: number, now?: number): Session;
     get(id: string | undefined, now?: number): Session | undefined;
     revoke(id: string | undefined): void;
