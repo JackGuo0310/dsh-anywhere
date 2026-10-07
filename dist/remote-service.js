@@ -82,7 +82,7 @@ let RemoteAccessService = (() => {
         static {
             const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(_classSuper[Symbol.metadata] ?? null) : void 0;
             _status_decorators = [Remote('status')];
-            _saveConfig_decorators = [Remote('saveConfig')];
+            _saveConfig_decorators = [Remote('saveCommonConfig')];
             _secretStatus_decorators = [Remote('secretStatus')];
             _discoverNetwork_decorators = [Remote('discoverNetwork')];
             _detectTailscale_decorators = [Remote('detectTailscale')];

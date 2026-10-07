@@ -93,7 +93,7 @@ export class RemoteAccessService extends TypertRemoteService {
     }
   }
 
-  @Remote('saveConfig')
+  @Remote('saveCommonConfig')
   async saveConfig(request: FullConfigRequest): Promise<unknown> {
     const submitted = objectOf(request?.config)
     const secrets = objectOf(request?.secrets ?? {})
