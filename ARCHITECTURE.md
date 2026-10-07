@@ -26,7 +26,7 @@ DSH Web 的 `dsh-host-webserver` 是进程内 HTTP/升级路由注册器；它�
 
 1. 默认关闭；默认绑定 `127.0.0.1`。
 2. 非 loopback 监听在管理员账号未配置时拒绝启动。
-3. 公网隧道模式要求 HTTPS 声明和可信代理显式 allowlist；不信任任意 `X-Forwarded-*`。
+3. 访问方式只有 `direct`（直连私有网络）与 `tunnel`（公网隧道）两类；旧配置中的 `loopback`/`lan`/`tailscale` 迁移为 `direct`。可达范围完全由监听地址决定，不由模式决定。公网隧道模式要求 HTTPS 声明和可信代理显式 allowlist；不信任任意 `X-Forwarded-*`。
 4. 登录网关位于直连能力（IP + port / Tailscale）与公网隧道能力（域名 + FRP）之前；认证在代理前发生，HTTP、SSE、API 与 WebSocket 共用同一会话判定。
 5. Cookie 使用 `HttpOnly`、`SameSite=Strict`、host-only；公网 HTTPS 使用 `Secure`。网关的退出操作校验 CSRF token；DSH 原生 HTTP 写请求必须同源 Origin/Fetch Metadata/Referer，WebSocket upgrade 检查 Host/Origin 与会话。LAN HTTP 与直连 Tailscale HTTP 不能提供传输加密，不能在不可信网络使用。
 6. 管理员密码使用 Node `scrypt` 哈希且至少 10 字符；不明文持久化。

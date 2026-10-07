@@ -33,6 +33,14 @@ test('trusted proxy entries require valid IP addresses or CIDRs', () => {
   assert.deepEqual(assertSafeConfig({ trustedProxyCidrs: ['10.0.0.0/8', 'fd00::/8'] }).trustedProxyCidrs, ['10.0.0.0/8', 'fd00::/8'])
 })
 
+test('legacy direct listener labels all migrate to direct mode', () => {
+  for (const legacy of ['loopback', 'lan', 'tailscale']) {
+    assert.equal(assertSafeConfig({ mode: legacy }).mode, 'direct', `${legacy} must migrate to direct`)
+  }
+  assert.equal(assertSafeConfig({ mode: 'tunnel', publicBaseUrl: 'https://example.test', frp: { executablePath: process.execPath, serverAddress: 'frp.example', serverPort: 7000, tokenSecretRef: 'FRP_TOKEN', customDomain: 'dsh.example' } }).mode, 'tunnel')
+  assert.equal(assertSafeConfig({}).mode, 'direct')
+})
+
 test('safe loopback configuration has secure defaults', () => {
   const config = assertSafeConfig({})
   assert.equal(config.listenHost, '127.0.0.1')

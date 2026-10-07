@@ -82,9 +82,9 @@ test('common settings are persisted through configEditor', async () => {
   }
   ;(ctx as unknown as { get(name: string): unknown }).get = (name: string) => name === 'credentials' ? credentials : name === 'configEditor' ? configEditor : undefined
   const service = new RemoteAccessService(ctx, assertSafeConfig({ adminPasswordSecretRef: 'DSH_REMOTE_ADMIN_HASH' }))
-  assert.deepEqual(await service.saveConfig({ config: { enabled: true, mode: 'lan', listenHost: '0.0.0.0', listenPort: 4173, target: { host: '127.0.0.1', port: 3080, protocol: 'http' }, adminPasswordSecretRef: 'DSH_REMOTE_ADMIN_HASH' } }), { saved: true, secretsUpdated: 0 })
+  assert.deepEqual(await service.saveConfig({ config: { enabled: true, mode: 'direct', listenHost: '0.0.0.0', listenPort: 4173, target: { host: '127.0.0.1', port: 3080, protocol: 'http' }, adminPasswordSecretRef: 'DSH_REMOTE_ADMIN_HASH' } }), { saved: true, secretsUpdated: 0 })
   assert.equal(saved?.enabled, true)
-  assert.equal(saved?.mode, 'lan')
+  assert.equal(saved?.mode, 'direct')
   assert.equal(saved?.listenHost, '0.0.0.0')
   assert.equal(saved?.listenPort, 4173)
   assert.deepEqual(saved?.target, { host: '127.0.0.1', port: 3080, protocol: 'http' })

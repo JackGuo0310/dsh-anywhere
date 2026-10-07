@@ -3,7 +3,7 @@ import { isIP } from 'node:net'
 import { z } from 'zod'
 
 export const CONFIG_VERSION = 1 as const
-export type AccessMode = 'loopback' | 'lan' | 'tailscale' | 'tunnel'
+export type AccessMode = 'direct' | 'tunnel'
 export type TunnelKind = 'frp' | 'custom-command'
 
 const hostSchema = z.string().min(1).refine((value) => {
@@ -36,7 +36,7 @@ export const configSchema = z.object({
   enabled: z.boolean().default(false),
   listenHost: hostSchema.default('127.0.0.1'),
   listenPort: z.number().int().min(1).max(65535).default(4173),
-  mode: z.enum(['loopback', 'lan', 'tailscale', 'tunnel']).default('loopback'),
+  mode: z.enum(['direct', 'tunnel']).default('direct'),
   target: z.object({
     host: hostSchema.default('127.0.0.1'),
     port: z.number().int().min(1).max(65535).default(3000),
@@ -61,7 +61,7 @@ export function isLoopbackHost(host: string): boolean {
 }
 
 export function assertSafeConfig(value: unknown): RemoteAccessConfig {
-  const config = configSchema.parse(value)
+  const config = configSchema.parse(migrateConfig(value))
   const external = !isLoopbackHost(config.listenHost)
   if (config.enabled && !isLoopbackHost(config.target.host)) {
     throw new Error('DSH upstream target must remain on loopback to protect the private launch token and cookie.')
@@ -108,11 +108,15 @@ export function assertSafeConfig(value: unknown): RemoteAccessConfig {
   return config
 }
 
+/** Legacy v1 modes only labeled the direct listener; every non-tunnel value maps to direct. */
+const legacyModes: Record<string, AccessMode> = { loopback: 'direct', lan: 'direct', tailscale: 'direct', tunnel: 'tunnel', direct: 'direct' }
+
 export function migrateConfig(value: unknown): RemoteAccessConfig {
   if (!value || typeof value !== 'object') return configSchema.parse({})
   const raw = value as Record<string, unknown>
-  if (raw.version === undefined) return configSchema.parse({ ...raw, version: CONFIG_VERSION })
-  return configSchema.parse(raw)
+  const normalized = raw.version === undefined ? { ...raw, version: CONFIG_VERSION } : raw
+  const mode = typeof normalized.mode === 'string' ? legacyModes[normalized.mode] : undefined
+  return configSchema.parse(mode === undefined ? normalized : { ...normalized, mode })
 }
 
 export function validateFrpcPath(path: string): void {

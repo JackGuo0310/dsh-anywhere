@@ -34,7 +34,7 @@
 
 ## 版本兼容性
 
-当前 `v0.1.21` 锁定 DeepSeek Harness `0.2.1-alpha.1` 运行时：
+当前 `v0.1.22` 锁定 DeepSeek Harness `0.2.1-alpha.1` 运行时：
 
 - `@deepseek-ai/cordis`：`~4.0.5-alpha.1`
 - `@deepseek-ai/dsh-credentials`：`0.2.1-alpha.1`
@@ -44,17 +44,17 @@
 
 ## 安装（Git tag）
 
-`v0.1.21` 尚未发布到 npm。可在目标机器使用 Git tag 安装：
+`v0.1.22` 尚未发布到 npm。可在目标机器使用 Git tag 安装：
 
 ```powershell
 # dsh 会将 bundle 安装到指定 profile；按你的实际 profile 名替换 web。
-dsh plugin --profile web add https://github.com/JackGuo0310/dsh-anywhere.git#v0.1.21
+dsh plugin --profile web add https://github.com/JackGuo0310/dsh-anywhere.git#v0.1.22
 ```
 
 也可先克隆该 tag 并从本地目录安装：
 
 ```powershell
-git clone --branch v0.1.21 --depth 1 https://github.com/JackGuo0310/dsh-anywhere.git
+git clone --branch v0.1.22 --depth 1 https://github.com/JackGuo0310/dsh-anywhere.git
 dsh plugin --profile web add .\dsh-anywhere
 ```
 
@@ -64,9 +64,10 @@ dsh plugin --profile web add .\dsh-anywhere
 
 1. 首次使用先设置至少 10 个字符的管理员密码。
 2. 保持 DSH 目标为 `127.0.0.1`，填入实际原始端口（例如 `3080`）。
-3. 局域网：选择“局域网”，监听 `0.0.0.0` 或指定 LAN IP；浏览器访问 `http://<LAN-IP>:4173`。
-4. Tailscale：选择对应模式，保存后使用检测到的 `100.x.y.z:4173` 或 MagicDNS。
-5. FRP：在界面选择公网隧道和 FRP，填写 `frpc`、frps、HTTPS 域名及 Token；密钥直接保存到 DSH credentials。
+3. 可达范围由监听地址决定，模式只是标签：
+   - `127.0.0.1`：仅本机，浏览器访问 `http://127.0.0.1:4173`
+   - `0.0.0.0`：本机、局域网与 Tailscale 全部可连；局域网用 `http://<LAN-IP>:4173`，Tailscale 用检测到的 `100.x.y.z:4173` 或 MagicDNS
+4. FRP：访问方式选“公网隧道”，填写 `frpc`、frps、HTTPS 域名及 Token；密钥直接保存到 DSH credentials。
 6. 点击“保存并应用”：`configEditor` 持久化配置并等待 Loader 重新挂载插件；网关配置与开关即时生效，不要求重启 DSH。保存成功后界面重新读取状态。随后访问网关地址，输入管理员密码并进入 DSH。
 
 ## FRP 先决条件
@@ -88,9 +89,9 @@ npm test
 
 ## 平台验证
 
-- **Windows**：在 Windows Node 环境执行了 `npm run check`、`npm run build` 与 `npm test`，37/37 测试通过。
+- **Windows**：在 Windows Node 环境执行了 `npm run check`、`npm run build` 与 `npm test`，38/38 测试通过。
 - **Linux**：代码只依赖 Node 22 的跨平台模块；`spawn(..., { windowsHide: true })` 在 Linux 被 Node 忽略。尚未在真实 Linux host 上运行集成测试，发布前应执行同一命令并测试 `frpc` 生命周期。
-- 用户已在真实 `web` profile 中验证 `v0.1.21`：安装后重启 DSH，网关在 `http://127.0.0.1:4173` 显示中文登录页，登录成功可进入 DSH，`favicon.ico` 不再产生未授权噪音，保存配置后端口/开关即时生效且无需再次重启。LAN/Tailscale 与 FRP 公网隧道模式尚未在真实网络验证。
+- 用户已在真实 `web` profile 中验证 `v0.1.22`：安装后重启 DSH，网关在 `http://127.0.0.1:4173` 显示中文登录页，登录成功可进入 DSH，`favicon.ico` 不再产生未授权噪音，保存配置后端口/开关即时生效且无需再次重启。LAN/Tailscale 与 FRP 公网隧道模式尚未在真实网络验证。
 
 ## 已知限制
 

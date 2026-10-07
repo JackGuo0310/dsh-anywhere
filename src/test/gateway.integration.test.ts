@@ -17,7 +17,7 @@ async function listen(server: ReturnType<typeof createServer>): Promise<number> 
 
 function config(targetPort: number, listenPort: number): RemoteAccessConfig {
   return {
-    version: 1, enabled: true, listenHost: '127.0.0.1', listenPort, mode: 'loopback',
+    version: 1, enabled: true, listenHost: '127.0.0.1', listenPort, mode: 'direct',
     target: { host: '127.0.0.1', port: targetPort, protocol: 'http' }, publicBaseUrl: undefined,
     trustedProxyCidrs: [], sessionTtlMinutes: 60, maxRequestBodyBytes: 1_024_000,
     adminConfigured: true, adminPasswordSecretRef: 'DSH_REMOTE_ADMIN_HASH', frp: undefined,

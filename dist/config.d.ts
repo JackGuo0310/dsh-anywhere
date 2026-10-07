@@ -1,6 +1,6 @@
 import { z } from 'zod';
 export declare const CONFIG_VERSION: 1;
-export type AccessMode = 'loopback' | 'lan' | 'tailscale' | 'tunnel';
+export type AccessMode = 'direct' | 'tunnel';
 export type TunnelKind = 'frp' | 'custom-command';
 export declare const frpConfigSchema: z.ZodObject<{
     executablePath: z.ZodOptional<z.ZodString>;
@@ -41,7 +41,7 @@ export declare const configSchema: z.ZodObject<{
     enabled: z.ZodDefault<z.ZodBoolean>;
     listenHost: z.ZodDefault<z.ZodEffects<z.ZodString, string, string>>;
     listenPort: z.ZodDefault<z.ZodNumber>;
-    mode: z.ZodDefault<z.ZodEnum<["loopback", "lan", "tailscale", "tunnel"]>>;
+    mode: z.ZodDefault<z.ZodEnum<["direct", "tunnel"]>>;
     target: z.ZodDefault<z.ZodObject<{
         host: z.ZodDefault<z.ZodEffects<z.ZodString, string, string>>;
         port: z.ZodDefault<z.ZodNumber>;
@@ -111,7 +111,7 @@ export declare const configSchema: z.ZodObject<{
     sessionTtlMinutes: number;
     maxRequestBodyBytes: number;
     enabled: boolean;
-    mode: "loopback" | "tunnel" | "lan" | "tailscale";
+    mode: "direct" | "tunnel";
     listenHost: string;
     listenPort: number;
     target: {
@@ -151,7 +151,7 @@ export declare const configSchema: z.ZodObject<{
         args: string[];
     } | undefined;
     enabled?: boolean | undefined;
-    mode?: "loopback" | "tunnel" | "lan" | "tailscale" | undefined;
+    mode?: "direct" | "tunnel" | undefined;
     listenHost?: string | undefined;
     listenPort?: number | undefined;
     frp?: {
