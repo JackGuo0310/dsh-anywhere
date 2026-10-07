@@ -131,7 +131,7 @@ test('turning the tunnel switch off stops the tunnel but keeps its settings', as
   ;(ctx as unknown as { get(name: string): unknown }).get = (name: string) => name === 'credentials'
     ? { resolve: async () => ({ value: 'token' }), describe: async () => ({ configured: true, writable: true }), set: async () => {} }
     : name === 'connection' ? { authenticatedUrl: (url: string) => `${url}?token=test` } : undefined
-  const frp = { executablePath: process.execPath, serverAddress: '64.176.84.88', serverPort: 7000, authMethod: 'token' as const, tokenSecretRef: 'DSH_REMOTE_FRP_TOKEN', transport: 'http' as const, customDomain: 'dsh.example.com', tlsEnabled: true, startWithDsh: false }
+  const frp = { executablePath: process.execPath, serverAddress: 'frps.example.test', serverPort: 7000, authMethod: 'token' as const, tokenSecretRef: 'DSH_REMOTE_FRP_TOKEN', transport: 'http' as const, customDomain: 'dsh.example.com', tlsEnabled: true, startWithDsh: false }
   const service = new RemoteAccessService(ctx, assertSafeConfig({ enabled: true, listenPort: port, tunnelEnabled: false, frp, adminPasswordSecretRef: 'DSH_REMOTE_ADMIN_HASH' }))
   await service.start()
   try {
