@@ -97,9 +97,10 @@ npm test
 
 ## 平台验证
 
-- **Windows**：在 Windows Node 环境执行了 `npm run check`、`npm run build` 与 `npm test`，50/50 测试通过。
+- **Windows**：在 Windows Node 环境执行了 `npm run check`、`npm run build` 与 `npm test`，52/52 测试通过。
 - **Linux**：代码只依赖 Node 22 的跨平台模块；`spawn(..., { windowsHide: true })` 在 Linux 被 Node 忽略。尚未在真实 Linux host 上运行集成测试，发布前应执行同一命令并测试 `frpc` 生命周期。
-- 用户已在真实 `web` profile 中验证（`v0.1.23` → `v0.2.5`）：本机 `127.0.0.1`、局域网 `192.168.x.x` 与 Tailscale `100.x.y.z` 三个入口可同时访问同一端口，各自独立启停；登录流程、favicon 静默、保存配置热应用、入口隔离会话实测通过。FRP 公网隧道尚未在真实网络验证，需要你自己的 `frps` 与域名。`v0.1.x` 的 `listenHost`/`mode` 配置已自动迁移为新的 `listeners`/`tunnelEnabled`。
+- 用户已在真实 `web` profile 中验证（`v0.1.23` → `v0.2.5`）：本机 `127.0.0.1`、局域网 `192.168.x.x` 与 Tailscale `100.x.y.z` 三个入口可同时访问同一端口，各自独立启停；登录流程、favicon 静默、manifest 静默、保存配置热应用、入口隔离会话实测通过。
+- FRP 公网隧道已端到端验证（`v0.2.5`）：Cloudflare → nginx:443 → frps:80 → frpc → 网关 `127.0.0.1:4173` 全链路打通，`https://<子域名>` 显示登录页并可进入 DSH。取消隧道开关后 `frpc` 进程退出、`frps` 返回其默认 404（请求未到达网关），这与开关失效时的网关 421 明显不同；启动、重启、撤销所有会话三个按钮均实测有效。`v0.1.x` 的 `listenHost`/`mode` 配置已自动迁移为新的 `listeners`/`tunnelEnabled`。
 
 ## 已知限制
 
