@@ -92,6 +92,18 @@ test('client half registers its runtime dictionaries for every shipped locale', 
   }
 })
 
+test('save RPC nests its single request parameter under the descriptor field', async () => {
+  const { ctx, slots, rpcCalls } = bootClientModule()
+  await boot(ctx)
+  const injected = (slots[0] as unknown as { inject: () => { call: HostCall } }).inject()
+  const request = { config: { target: { port: 3080 } }, secrets: {} }
+  await injected.call('saveCommonConfig', { request })
+  assert.deepEqual(rpcCalls.at(-1), {
+    endpoint: 'dshRemoteAccess/saveCommonConfig',
+    payload: { args: { request } },
+  })
+})
+
 test('settings section calls the Host Remote namespace over the connection channel', async () => {
   const { ctx, slots, rpcCalls } = bootClientModule()
   await boot(ctx)
