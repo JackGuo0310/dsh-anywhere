@@ -41,7 +41,7 @@
 
 ## 版本兼容性
 
-当前 `v0.2.2` 锁定 DeepSeek Harness `0.2.1-alpha.1` 运行时：
+当前 `v0.2.3` 锁定 DeepSeek Harness `0.2.1-alpha.1` 运行时：
 
 - `@deepseek-ai/cordis`：`~4.0.5-alpha.1`
 - `@deepseek-ai/dsh-credentials`：`0.2.1-alpha.1`
@@ -51,17 +51,17 @@
 
 ## 安装（Git tag）
 
-`v0.2.2` 尚未发布到 npm。可在目标机器使用 Git tag 安装：
+`v0.2.3` 尚未发布到 npm。可在目标机器使用 Git tag 安装：
 
 ```powershell
 # dsh 会将 bundle 安装到指定 profile；按你的实际 profile 名替换 web。
-dsh plugin --profile web add https://github.com/JackGuo0310/dsh-anywhere.git#v0.2.2
+dsh plugin --profile web add https://github.com/JackGuo0310/dsh-anywhere.git#v0.2.3
 ```
 
 也可先克隆该 tag 并从本地目录安装：
 
 ```powershell
-git clone --branch v0.2.2 --depth 1 https://github.com/JackGuo0310/dsh-anywhere.git
+git clone --branch v0.2.3 --depth 1 https://github.com/JackGuo0310/dsh-anywhere.git
 dsh plugin --profile web add .\dsh-anywhere
 ```
 
@@ -97,9 +97,9 @@ npm test
 
 ## 平台验证
 
-- **Windows**：在 Windows Node 环境执行了 `npm run check`、`npm run build` 与 `npm test`，48/48 测试通过。
+- **Windows**：在 Windows Node 环境执行了 `npm run check`、`npm run build` 与 `npm test`，50/50 测试通过。
 - **Linux**：代码只依赖 Node 22 的跨平台模块；`spawn(..., { windowsHide: true })` 在 Linux 被 Node 忽略。尚未在真实 Linux host 上运行集成测试，发布前应执行同一命令并测试 `frpc` 生命周期。
-- 用户已在真实 `web` profile 中验证（`v0.1.23` → `v0.2.2`）：本机 `127.0.0.1`、局域网 `192.168.x.x` 与 Tailscale `100.x.y.z` 三个入口可同时访问同一端口，各自独立启停；登录流程、favicon 静默、保存配置热应用、入口隔离会话实测通过。FRP 公网隧道尚未在真实网络验证，需要你自己的 `frps` 与域名。`v0.1.x` 的 `listenHost`/`mode` 配置已自动迁移为新的 `listeners`/`tunnelEnabled`。
+- 用户已在真实 `web` profile 中验证（`v0.1.23` → `v0.2.3`）：本机 `127.0.0.1`、局域网 `192.168.x.x` 与 Tailscale `100.x.y.z` 三个入口可同时访问同一端口，各自独立启停；登录流程、favicon 静默、保存配置热应用、入口隔离会话实测通过。FRP 公网隧道尚未在真实网络验证，需要你自己的 `frps` 与域名。`v0.1.x` 的 `listenHost`/`mode` 配置已自动迁移为新的 `listeners`/`tunnelEnabled`。
 
 ## 已知限制
 

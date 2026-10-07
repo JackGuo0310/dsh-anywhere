@@ -4,7 +4,9 @@ import { Context } from '@deepseek-ai/cordis'
 import { createServer } from 'node:http'
 import { once } from 'node:events'
 import { RemoteAccessService } from '../remote-service.js'
-import { hostedGateway, shutdownGateway } from '../gateway/host.js'
+import { hostedGateway, hostTiming, shutdownGateway } from '../gateway/host.js'
+
+const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
 import { assertSafeConfig } from '../config.js'
 import { verifyPassword } from '../security/password.js'
 
@@ -67,6 +69,60 @@ test('a configuration remount re-adopts the running gateway instead of restartin
     await shutdownGateway()
   }
   assert.equal(hostedGateway(), undefined)
+})
+
+test('a disposal whose re-apply is delayed still keeps the gateway', async () => {
+  const port = await freePort()
+  const context = () => {
+    const ctx = new Context()
+    ;(ctx as unknown as { get(name: string): unknown }).get = (name: string) => name === 'credentials'
+      ? { resolve: async () => undefined }
+      : name === 'connection' ? { authenticatedUrl: (url: string) => `${url}?token=test` } : undefined
+    return ctx
+  }
+  const config = assertSafeConfig({ enabled: true, listenPort: port, adminPasswordSecretRef: 'DSH_REMOTE_ADMIN_HASH' })
+  const service = new RemoteAccessService(context(), config)
+  await service.start()
+  const running = hostedGateway()
+  const timing = { ...hostTiming }
+  hostTiming.recentReconcileMs = 0
+  hostTiming.releaseGraceMs = 40
+  try {
+    // Dispose first, apply second: the deferred stop must be cancelled by the re-apply.
+    service.release()
+    const second = new RemoteAccessService(context(), config)
+    await second.start()
+    await delay(120)
+    assert.equal(hostedGateway(), running, 'a delayed re-apply must still keep the running gateway')
+    await second.stop()
+  } finally {
+    hostTiming.recentReconcileMs = timing.recentReconcileMs
+    hostTiming.releaseGraceMs = timing.releaseGraceMs
+    await shutdownGateway()
+  }
+})
+
+test('a disposal with no re-apply stops the gateway after the grace period', async () => {
+  const port = await freePort()
+  const ctx = new Context()
+  ;(ctx as unknown as { get(name: string): unknown }).get = (name: string) => name === 'credentials'
+    ? { resolve: async () => undefined }
+    : name === 'connection' ? { authenticatedUrl: (url: string) => `${url}?token=test` } : undefined
+  const service = new RemoteAccessService(ctx, assertSafeConfig({ enabled: true, listenPort: port, adminPasswordSecretRef: 'DSH_REMOTE_ADMIN_HASH' }))
+  await service.start()
+  const timing = { ...hostTiming }
+  hostTiming.recentReconcileMs = 0
+  hostTiming.releaseGraceMs = 40
+  try {
+    service.release()
+    assert.equal(hostedGateway() !== undefined, true, 'the gateway survives until the grace period elapses')
+    await delay(150)
+    assert.equal(hostedGateway(), undefined, 'an abandoned disposal must stop the gateway')
+  } finally {
+    hostTiming.recentReconcileMs = timing.recentReconcileMs
+    hostTiming.releaseGraceMs = timing.releaseGraceMs
+    await shutdownGateway()
+  }
 })
 
 test('initial administrator password can be stored while gateway is stopped', async () => {
