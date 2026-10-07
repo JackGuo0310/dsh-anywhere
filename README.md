@@ -41,7 +41,7 @@
 
 ## 版本兼容性
 
-当前 `v0.2.5` 锁定 DeepSeek Harness `0.2.1-alpha.1` 运行时：
+当前 `v0.2.6` 锁定 DeepSeek Harness `0.2.1-alpha.1` 运行时：
 
 - `@deepseek-ai/cordis`：`~4.0.5-alpha.1`
 - `@deepseek-ai/dsh-credentials`：`0.2.1-alpha.1`
@@ -51,17 +51,17 @@
 
 ## 安装（Git tag）
 
-`v0.2.5` 尚未发布到 npm。可在目标机器使用 Git tag 安装：
+`v0.2.6` 尚未发布到 npm。可在目标机器使用 Git tag 安装：
 
 ```powershell
 # dsh 会将 bundle 安装到指定 profile；按你的实际 profile 名替换 web。
-dsh plugin --profile web add https://github.com/JackGuo0310/dsh-anywhere.git#v0.2.5
+dsh plugin --profile web add https://github.com/JackGuo0310/dsh-anywhere.git#v0.2.6
 ```
 
 也可先克隆该 tag 并从本地目录安装：
 
 ```powershell
-git clone --branch v0.2.5 --depth 1 https://github.com/JackGuo0310/dsh-anywhere.git
+git clone --branch v0.2.6 --depth 1 https://github.com/JackGuo0310/dsh-anywhere.git
 dsh plugin --profile web add .\dsh-anywhere
 ```
 
@@ -99,8 +99,8 @@ npm test
 
 - **Windows**：在 Windows Node 环境执行了 `npm run check`、`npm run build` 与 `npm test`，52/52 测试通过。
 - **Linux**：代码只依赖 Node 22 的跨平台模块；`spawn(..., { windowsHide: true })` 在 Linux 被 Node 忽略。尚未在真实 Linux host 上运行集成测试，发布前应执行同一命令并测试 `frpc` 生命周期。
-- 用户已在真实 `web` profile 中验证（`v0.1.23` → `v0.2.5`）：本机 `127.0.0.1`、局域网 `192.168.x.x` 与 Tailscale `100.x.y.z` 三个入口可同时访问同一端口，各自独立启停；登录流程、favicon 静默、manifest 静默、保存配置热应用、入口隔离会话实测通过。
-- FRP 公网隧道已端到端验证（`v0.2.5`）：Cloudflare → nginx:443 → frps:80 → frpc → 网关 `127.0.0.1:4173` 全链路打通，`https://<子域名>` 显示登录页并可进入 DSH。取消隧道开关后 `frpc` 进程退出、`frps` 返回其默认 404（请求未到达网关），这与开关失效时的网关 421 明显不同；启动、重启、撤销所有会话三个按钮均实测有效。`v0.1.x` 的 `listenHost`/`mode` 配置已自动迁移为新的 `listeners`/`tunnelEnabled`。
+- 用户已在真实 `web` profile 中验证（`v0.1.23` → `v0.2.6`）：本机 `127.0.0.1`、局域网 `192.168.x.x` 与 Tailscale `100.x.y.z` 三个入口可同时访问同一端口，各自独立启停；登录流程、favicon 静默、manifest 静默、保存配置热应用、入口隔离会话实测通过。
+- FRP 公网隧道已端到端验证（`v0.2.6`）：Cloudflare → nginx:443 → frps:80 → frpc → 网关 `127.0.0.1:4173` 全链路打通，`https://<子域名>` 显示登录页并可进入 DSH。取消隧道开关后 `frpc` 进程退出、`frps` 返回其默认 404（请求未到达网关），这与开关失效时的网关 421 明显不同；启动、重启、撤销所有会话三个按钮均实测有效。`v0.1.x` 的 `listenHost`/`mode` 配置已自动迁移为新的 `listeners`/`tunnelEnabled`。
 
 ## 已知限制
 

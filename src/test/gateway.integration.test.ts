@@ -268,6 +268,11 @@ test('browser navigation opens login while APIs remain private and favicon stays
     assert.match(csp, /script-src 'sha256-/)
     // The login form fetches over the same origin; default-src 'none' would block it otherwise.
     assert.match(csp, /connect-src 'self'/)
+    // Cloudflare injects its analytics beacon, so a reverse-proxied login page must allow it.
+    assert.match(csp, /script-src[^;]*https:\/\/static\.cloudflareinsights\.com/)
+    assert.match(csp, /connect-src[^;]*https:\/\/cloudflareinsights\.com/)
+    // The inline login script stays the only permitted script source for this page's own code.
+    assert.doesNotMatch(csp, /script-src[^;]*'unsafe-inline'/)
     const body = await loginPage.text()
     assert.match(body, /登录远程访问网关/)
     assert.match(body, /_dsh_remote\/login/)

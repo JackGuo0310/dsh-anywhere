@@ -26,7 +26,18 @@ if (!loginScript)
 const loginScriptHash = createHash('sha256').update(loginScript).digest('base64');
 // `connect-src 'self'` keeps the login fetch working; without it the default-src
 // 'none' fallback blocks the request before it ever reaches the gateway.
-const loginCsp = `default-src 'none'; script-src 'sha256-${loginScriptHash}'; style-src 'unsafe-inline'; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'`;
+// Cloudflare injects its Web Analytics beacon into proxied HTML, so the login page must
+// allow that one static host for scripts and its reporting endpoint, or a reverse-proxied
+// deployment logs a CSP violation for every page load.
+const loginCsp = [
+    `default-src 'none'`,
+    `script-src 'sha256-${loginScriptHash}' https://static.cloudflareinsights.com`,
+    `style-src 'unsafe-inline'`,
+    `connect-src 'self' https://cloudflareinsights.com`,
+    `form-action 'self'`,
+    `base-uri 'none'`,
+    `frame-ancestors 'none'`
+].join('; ');
 function htmlNavigation(req) {
     return req.method === 'GET' && typeof req.headers.accept === 'string' && req.headers.accept.split(',').some((type) => type.trim().startsWith('text/html'));
 }
