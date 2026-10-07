@@ -91,7 +91,7 @@ npm test
 
 - **Windows**：在 Windows Node 环境执行了 `npm run check`、`npm run build` 与 `npm test`，40/40 测试通过。
 - **Linux**：代码只依赖 Node 22 的跨平台模块；`spawn(..., { windowsHide: true })` 在 Linux 被 Node 忽略。尚未在真实 Linux host 上运行集成测试，发布前应执行同一命令并测试 `frpc` 生命周期。
-- 用户已在真实 `web` profile 中验证登录流程与热应用；`0.0.0.0` 通配监听的行为由本地集成测试覆盖（接受 IP 字面量与 `localhost`，拒绝任意外部域名）。LAN/Tailscale 与 FRP 公网隧道模式尚未在真实网络验证。
+- 用户已在真实 `web` profile 中验证 `v0.1.23`：`0.0.0.0` 通配监听下，本机 `127.0.0.1:4173` 与 Tailscale `100.x.y.z:4173` 均可打开登录页；登录流程、favicon、保存配置热应用此前也已实测通过。局域网其他设备与 FRP 公网隧道模式尚未在真实网络验证。
 
 ## 已知限制
 
