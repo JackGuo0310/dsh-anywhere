@@ -8,9 +8,11 @@ export interface Session {
 
 export class SessionStore {
   private readonly sessions = new Map<string, Session>()
+  private readonly maxSessions = 1024
 
   create(ttlMinutes: number, now = Date.now()): Session {
     this.clearExpired(now)
+    while (this.sessions.size >= this.maxSessions) this.sessions.delete(this.sessions.keys().next().value!)
     const session = { id: randomBytes(32).toString('base64url'), csrfToken: randomBytes(24).toString('base64url'), expiresAt: now + ttlMinutes * 60_000 }
     this.sessions.set(this.hash(session.id), session)
     return session

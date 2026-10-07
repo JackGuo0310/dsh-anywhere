@@ -79,6 +79,10 @@ test('gateway authenticates then proxies HTTP and enforces CSRF logout', async (
     assert.equal(crossSite.status, 403)
     const noOrigin = await fetch(`${base}/api`, { method: 'POST', headers: { cookie } })
     assert.equal(noOrigin.status, 403)
+    const sameReferer = await fetch(`${base}/api`, { method: 'POST', headers: { cookie, referer: `${base}/` } })
+    assert.equal(sameReferer.status, 200)
+    const foreignReferer = await fetch(`${base}/api`, { method: 'POST', headers: { cookie, referer: 'http://evil.example/' } })
+    assert.equal(foreignReferer.status, 403)
     const safeProxy = await fetch(`${base}/app`, { method: 'POST', headers: { cookie, origin: base, 'x-csrf-token': csrfToken } })
     assert.equal(safeProxy.status, 200)
     const oversized = await fetch(`${base}/app`, { method: 'POST', headers: { cookie, origin: base, 'x-csrf-token': csrfToken }, body: 'x'.repeat(1_024_001) })
@@ -164,6 +168,50 @@ test('private Connection exchange authenticates upstream without exposing its co
     assert.equal(logout.status, 204)
     assert.equal((await fetch(`${base}/_dsh_remote/session`, { headers: { cookie } })).status, 401)
   } finally {
+    await gateway.stop()
+    await new Promise<void>((resolve) => upstream.close(() => resolve()))
+  }
+})
+
+test('logout during a private upstream exchange cannot restore revoked authentication', async () => {
+  let releaseExchange: (() => void) | undefined
+  let exchangeStarted: (() => void) | undefined
+  const started = new Promise<void>((resolve) => { exchangeStarted = resolve })
+  const exchangeGate = new Promise<void>((resolve) => { releaseExchange = resolve })
+  let exchanges = 0
+  let proxied = 0
+  const issued = 'dsh-auth-example=v1.secret.signature'
+  const upstream = createServer((req, res) => {
+    if (req.url === '/?token=private-launch-token') {
+      exchanges++
+      exchangeStarted?.()
+      void exchangeGate.then(() => { res.writeHead(303, { location: './', 'set-cookie': `${issued}; Path=/; HttpOnly` }); res.end() })
+      return
+    }
+    proxied++
+    res.writeHead(req.headers.cookie === issued ? 200 : 401)
+    res.end()
+  })
+  const upstreamPort = await listen(upstream)
+  const probe = createServer()
+  const gatewayPort = await listen(probe)
+  await new Promise<void>((resolve) => probe.close(() => resolve()))
+  const gateway = new RemoteGateway(config(upstreamPort, gatewayPort), await hashPassword('correct horse battery staple'), () => `http://127.0.0.1:${upstreamPort}/?token=private-launch-token`)
+  await gateway.start()
+  const base = `http://127.0.0.1:${gatewayPort}`
+  try {
+    const { cookie, csrfToken } = await login(base)
+    const inFlight = fetch(`${base}/app`, { headers: { cookie } })
+    await started
+    const logout = await fetch(`${base}/_dsh_remote/logout`, { method: 'POST', headers: { cookie, origin: base, 'x-csrf-token': csrfToken } })
+    assert.equal(logout.status, 204)
+    releaseExchange?.()
+    assert.equal((await inFlight).status, 401)
+    assert.equal((await fetch(`${base}/app`, { headers: { cookie } })).status, 401)
+    assert.equal(exchanges, 1)
+    assert.equal(proxied, 0)
+  } finally {
+    releaseExchange?.()
     await gateway.stop()
     await new Promise<void>((resolve) => upstream.close(() => resolve()))
   }

@@ -46,6 +46,14 @@ test('session store uses opaque id and expires sessions', () => {
   assert.equal(sessions.get(session.id, 62_000), undefined)
 })
 
+test('session store bounds retained sessions and evicts the oldest', () => {
+  const sessions = new SessionStore()
+  const first = sessions.create(60)
+  for (let index = 0; index < 1_024; index++) sessions.create(60)
+  assert.equal(sessions.count(), 1_024)
+  assert.equal(sessions.get(first.id), undefined)
+})
+
 test('rate limiter blocks after configured budget', () => {
   const limiter = new SlidingWindowRateLimiter(2, 1_000)
   assert.equal(limiter.check('a', 0).allowed, true)

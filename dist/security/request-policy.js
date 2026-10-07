@@ -80,7 +80,7 @@ export function isTrustedProxy(remoteAddress, trusted) {
 export function effectiveAuthority(req, trustedProxies) {
     const fromProxy = isTrustedProxy(req.socket.remoteAddress, trustedProxies);
     const forwarded = fromProxy ? req.headers['x-forwarded-host'] : undefined;
-    const candidate = typeof forwarded === 'string' && !forwarded.includes(',') ? forwarded.trim() : fromProxy && forwarded !== undefined ? undefined : req.headers.host;
+    const candidate = fromProxy && forwarded !== undefined ? typeof forwarded === 'string' && !forwarded.includes(',') ? forwarded.trim() : undefined : req.headers.host;
     return candidate ? canonicalAuthority(candidate) : undefined;
 }
 export function websocketOriginAllowed(req, allowedAuthorities, trustedProxies, publicBaseUrl) {
@@ -91,7 +91,7 @@ export function websocketOriginAllowed(req, allowedAuthorities, trustedProxies, 
         const parsed = new URL(origin);
         const authority = effectiveAuthority(req, trustedProxies);
         if (publicBaseUrl)
-            return parsed.origin === new URL(publicBaseUrl).origin && parsed.origin === origin && authority === parsed.host.toLowerCase();
+            return parsed.origin === new URL(publicBaseUrl).origin && parsed.origin === origin && authority === parsed.host.toLowerCase() && !!authority && allowedAuthorities.includes(authority);
         return (parsed.protocol === 'http:' || parsed.protocol === 'https:') && parsed.origin === origin && !!authority
             && allowedAuthorities.includes(parsed.host.toLowerCase()) && parsed.host.toLowerCase() === authority;
     }
@@ -114,8 +114,10 @@ export function proxyWriteAllowed(req, allowedAuthorities, trustedProxies, publi
         return false;
     if (req.headers.origin !== undefined)
         return websocketOriginAllowed(req, allowedAuthorities, trustedProxies, publicBaseUrl);
-    if (fetchSite === 'same-origin')
-        return hostAllowed(req, allowedAuthorities, trustedProxies) && (!publicBaseUrl || effectiveAuthority(req, trustedProxies) === new URL(publicBaseUrl).host.toLowerCase());
+    if (fetchSite === 'same-origin') {
+        const authority = effectiveAuthority(req, trustedProxies);
+        return !!authority && allowedAuthorities.includes(authority) && (!publicBaseUrl || authority === new URL(publicBaseUrl).host.toLowerCase());
+    }
     const referer = req.headers.referer;
     if (typeof referer !== 'string')
         return false;
