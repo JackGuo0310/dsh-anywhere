@@ -23,7 +23,7 @@ test('gateway lifecycle survives a bind failure and releases the listener on sto
   const ownerCtx = new Context()
   const contenderCtx = new Context()
   for (const ctx of [ownerCtx, contenderCtx]) {
-    ;(ctx as unknown as { get(name: string): unknown }).get = (name: string) => name === 'credentials' ? { resolve: async () => undefined } : undefined
+    ;(ctx as unknown as { get(name: string): unknown }).get = (name: string) => name === 'credentials' ? { resolve: async () => undefined } : name === 'connection' ? { authenticatedUrl: (url: string) => url + '?token=test' } : undefined
   }
   const owner = new RemoteAccessService(ownerCtx, config)
   const contender = new RemoteAccessService(contenderCtx, config)

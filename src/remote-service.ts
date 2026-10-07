@@ -9,6 +9,8 @@ import { hashPassword } from './security/password.js'
 import type { Context } from '@deepseek-ai/cordis'
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 
+type ConnectionAuth = { authenticatedUrl(baseUrl: string): string }
+
 type Credentials = {
   resolve(ref: string): Promise<{ value: string } | undefined>
   describe(ref: string): Promise<{ configured: boolean, source?: string, writable: boolean }>
@@ -62,7 +64,9 @@ export class RemoteAccessService extends TypertRemoteService {
   async start(): Promise<void> {
     if (this.gateway) throw new Error('Remote gateway is already running.')
     const passwordHash = await this.loadPasswordHash()
-    const gateway = new RemoteGateway(this.config, passwordHash)
+    const connection = this.ctx.get('connection') as ConnectionAuth | undefined
+    if (!connection) throw new Error('DSH Connection service is required to authenticate upstream browser requests.')
+    const gateway = new RemoteGateway(this.config, passwordHash, () => connection.authenticatedUrl(`${this.config.target.protocol}://${this.config.target.host}:${this.config.target.port}/`))
     try {
       await gateway.start()
       this.gateway = gateway

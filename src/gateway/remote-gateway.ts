@@ -7,6 +7,7 @@ import { AuthService } from '../security/auth.js'
 import { hostAllowed, originAllowed, websocketOriginAllowed } from '../security/request-policy.js'
 import { loginPage } from './login-page.js'
 import { proxyHttp, bridgeWebSocket } from './proxy.js'
+import { upstreamCookie } from './upstream-auth.js'
 
 const SECURITY_HEADERS: Record<string, string> = {
   'x-content-type-options': 'nosniff',
@@ -33,8 +34,9 @@ export class RemoteGateway {
   private readonly sockets = new Set<import('node:net').Socket>()
   private readonly auth: AuthService
   private readonly allowedAuthorities: string[]
+  private readonly upstreamSessions = new Map<string, string>()
 
-  constructor(private readonly config: RemoteAccessConfig, passwordHash?: string) {
+  constructor(private readonly config: RemoteAccessConfig, passwordHash?: string, private readonly authenticatedUrl?: () => string) {
     const publicAuthority = config.publicBaseUrl ? new URL(config.publicBaseUrl).host.toLowerCase() : undefined
     this.allowedAuthorities = [...new Set([`${config.listenHost}:${config.listenPort}`.toLowerCase(), publicAuthority].filter(Boolean) as string[])]
     this.auth = new AuthService({
@@ -72,6 +74,8 @@ export class RemoteGateway {
   async stop(): Promise<void> {
     const server = this.server
     this.server = undefined
+    this.upstreamSessions.clear()
+    this.auth.revokeAll()
     if (!server) return
     server.closeAllConnections()
     for (const socket of this.sockets) socket.destroy()
@@ -82,9 +86,23 @@ export class RemoteGateway {
     await this.auth.bootstrap(password)
     return this.auth.passwordRecord()!
   }
-  async changeAdminPassword(currentPassword: string, nextPassword: string): Promise<string> { return this.auth.changePassword(currentPassword, nextPassword) }
+  async changeAdminPassword(currentPassword: string, nextPassword: string): Promise<string> {
+    const hash = await this.auth.changePassword(currentPassword, nextPassword)
+    this.upstreamSessions.clear()
+    return hash
+  }
   passwordRecord(): string | undefined { return this.auth.passwordRecord() }
-  revokeAllSessions(): void { this.auth.revokeAll() }
+  revokeAllSessions(): void { this.auth.revokeAll(); this.upstreamSessions.clear() }
+
+  private async privateCookie(sessionId: string): Promise<string | undefined> {
+    if (!this.auth.sessions.get(sessionId)) { this.upstreamSessions.delete(sessionId); return undefined }
+    if (!this.authenticatedUrl) return undefined
+    const existing = this.upstreamSessions.get(sessionId)
+    if (existing) return existing
+    const cookie = await upstreamCookie(this.config.target, this.authenticatedUrl)
+    this.upstreamSessions.set(sessionId, cookie)
+    return cookie
+  }
 
   private writeSecurity(res: ServerResponse): void { for (const [key, value] of Object.entries(SECURITY_HEADERS)) res.setHeader(key, value) }
   private json(res: ServerResponse, status: number, body: unknown): void {
@@ -122,8 +140,10 @@ export class RemoteGateway {
   private async handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
     this.writeSecurity(res)
     if (!hostAllowed(req, this.allowedAuthorities, this.config.trustedProxyCidrs)) return this.json(res, 421, { error: 'Unrecognized Host header.' })
-    const pathname = new URL(req.url ?? '/', 'http://gateway.invalid').pathname
-    if (pathname === '/_dsh_remote/health') return this.json(res, 200, { status: 'ok' })
+    const url = new URL(req.url ?? '/', 'http://gateway.invalid')
+    const pathname = url.pathname
+    if (url.searchParams.has('token')) return this.json(res, 400, { error: 'Launch tokens are not accepted by this gateway.' })
+    if (pathname === '/_dsh_remote/health' && (req.method === 'GET' || req.method === 'HEAD')) return this.json(res, 200, { status: 'ok' })
     if (pathname === '/favicon.ico' && (req.method === 'GET' || req.method === 'HEAD')) {
       res.writeHead(200, { 'content-type': 'image/svg+xml; charset=utf-8' })
       res.end(req.method === 'HEAD' ? undefined : favicon)
@@ -147,19 +167,33 @@ export class RemoteGateway {
         return this.json(res, 200, { csrfToken: login.session!.csrfToken })
       } catch (error) { return this.json(res, 400, { error: error instanceof Error ? error.message : 'Invalid request.' }) }
     }
+    if (pathname === '/_dsh_remote/session' && req.method === 'GET') {
+      const session = this.auth.requireSession(req)
+      return this.json(res, session ? 200 : 401, session ? { csrfToken: session.csrfToken } : { error: 'Login required.' })
+    }
     if (pathname === '/_dsh_remote/logout' && req.method === 'POST') {
       if (!originAllowed(req, this.allowedAuthorities, this.config.trustedProxyCidrs) || !this.auth.requireCsrf(req)) return this.json(res, 403, { error: 'CSRF check failed.' })
+      const session = this.auth.requireSession(req)
+      if (session) this.upstreamSessions.delete(session.id)
       this.auth.logout(req, res)
-      return this.json(res, 204, {})
+      res.writeHead(204)
+      res.end()
+      return
     }
-    if (!this.auth.requireSession(req)) {
+    if (pathname.startsWith('/_dsh_remote/')) return this.json(res, 404, { error: 'Not found.' })
+    const session = this.auth.requireSession(req)
+    if (!session) {
       if (htmlNavigation(req)) return this.loginRedirect(res, req.url ?? '/')
       return this.json(res, 401, { error: 'Login required.' })
     }
-    if (!this.auth.requireCsrf(req)) return this.json(res, 403, { error: 'CSRF check failed.' })
+    if (!originAllowed(req, this.allowedAuthorities, this.config.trustedProxyCidrs) || !this.auth.requireCsrf(req)) return this.json(res, 403, { error: 'CSRF check failed.' })
     const declaredLength = Number(req.headers['content-length'] ?? 0)
     if (Number.isFinite(declaredLength) && declaredLength > this.config.maxRequestBodyBytes) return this.json(res, 413, { error: 'Request body exceeds configured limit.' })
-    proxyHttp(req, res, this.config.target, this.config.maxRequestBodyBytes)
+    try {
+      const cookie = await this.privateCookie(session.id)
+      if (this.authenticatedUrl && !cookie) return this.json(res, 401, { error: 'Session expired.' })
+      proxyHttp(req, res, this.config.target, this.config.maxRequestBodyBytes, cookie)
+    } catch { this.json(res, 502, { error: 'DSH upstream authentication failed.' }) }
   }
 
   private handleUpgrade(req: IncomingMessage, socket: import('node:stream').Duplex, head: Buffer): void {
@@ -168,6 +202,16 @@ export class RemoteGateway {
       socket.destroy()
       return
     }
-    bridgeWebSocket(socket, head, req, this.config.target)
+    const session = this.auth.requireSession(req)!
+    void this.privateCookie(session.id).then((cookie) => {
+      if (socket.destroyed) return
+      if (this.authenticatedUrl && !cookie) { socket.destroy(); return }
+      bridgeWebSocket(socket, head, req, this.config.target, cookie)
+    }).catch(() => {
+      if (!socket.destroyed) {
+        socket.write('HTTP/1.1 502 Bad Gateway\r\nConnection: close\r\n\r\n')
+        socket.destroy()
+      }
+    })
   }
 }

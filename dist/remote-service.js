@@ -112,7 +112,10 @@ let RemoteAccessService = (() => {
             if (this.gateway)
                 throw new Error('Remote gateway is already running.');
             const passwordHash = await this.loadPasswordHash();
-            const gateway = new RemoteGateway(this.config, passwordHash);
+            const connection = this.ctx.get('connection');
+            if (!connection)
+                throw new Error('DSH Connection service is required to authenticate upstream browser requests.');
+            const gateway = new RemoteGateway(this.config, passwordHash, () => connection.authenticatedUrl(`${this.config.target.protocol}://${this.config.target.host}:${this.config.target.port}/`));
             try {
                 await gateway.start();
                 this.gateway = gateway;

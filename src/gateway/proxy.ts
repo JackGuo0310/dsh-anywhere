@@ -7,12 +7,18 @@ import type { RemoteAccessConfig } from '../config.js'
 
 const hopByHop = new Set(['connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization', 'te', 'trailer', 'transfer-encoding', 'upgrade'])
 
-export function proxyHttp(req: IncomingMessage, res: ServerResponse, target: RemoteAccessConfig['target'], maxRequestBodyBytes: number): void {
+export function proxyHttp(req: IncomingMessage, res: ServerResponse, target: RemoteAccessConfig['target'], maxRequestBodyBytes: number, upstreamCookie?: string): void {
   const transport = target.protocol === 'https' ? httpsRequest : httpRequest
   const headers = { ...req.headers }
   const connectionTokens = typeof req.headers.connection === 'string' ? req.headers.connection.split(',').map((value) => value.trim().toLowerCase()).filter(Boolean) : []
   for (const header of [...hopByHop, ...connectionTokens]) delete headers[header]
   delete headers.cookie
+  delete headers.authorization
+  delete headers['sec-fetch-site']
+  delete headers['sec-fetch-mode']
+  delete headers['sec-fetch-dest']
+  delete headers['sec-fetch-user']
+  if (upstreamCookie) headers.cookie = upstreamCookie
   delete headers.origin
   delete headers['x-csrf-token']
   delete headers['x-forwarded-for']
@@ -23,6 +29,32 @@ export function proxyHttp(req: IncomingMessage, res: ServerResponse, target: Rem
   const upstream = transport({ hostname: target.host, port: target.port, protocol: `${target.protocol}:`, method: req.method, path: req.url, headers }, (upstreamRes) => {
     const responseHeaders = { ...upstreamRes.headers }
     delete responseHeaders['set-cookie']
+    delete responseHeaders['access-control-allow-origin']
+    delete responseHeaders['access-control-allow-credentials']
+    delete responseHeaders['access-control-allow-headers']
+    delete responseHeaders['access-control-allow-methods']
+    delete responseHeaders['access-control-expose-headers']
+    delete responseHeaders['access-control-max-age']
+    delete responseHeaders['content-security-policy-report-only']
+    delete responseHeaders['report-to']
+    delete responseHeaders['reporting-endpoints']
+    for (const header of hopByHop) delete responseHeaders[header]
+    const location = responseHeaders.location
+    if (typeof location === 'string' && !/^https?:\/\//i.test(location) && (!location.startsWith('/') || location.startsWith('//'))) delete responseHeaders.location
+    if (typeof location === 'string' && /^https?:\/\//i.test(location)) {
+      try {
+        const url = new URL(location)
+        if (url.origin === `${target.protocol}://${target.host}:${target.port}`) responseHeaders.location = url.pathname + url.search + url.hash
+        else delete responseHeaders.location
+      } catch { delete responseHeaders.location }
+    }
+    for (const header of ['x-content-type-options', 'x-frame-options', 'referrer-policy', 'permissions-policy', 'cross-origin-opener-policy', 'cross-origin-resource-policy', 'cache-control']) delete responseHeaders[header]
+    if (typeof location === 'string' && !responseHeaders.location && (upstreamRes.statusCode ?? 0) >= 300 && (upstreamRes.statusCode ?? 0) < 400) {
+      res.writeHead(502, { 'content-type': 'text/plain; charset=utf-8' })
+      res.end('Unsafe upstream redirect rejected.')
+      upstreamRes.resume()
+      return
+    }
     res.writeHead(upstreamRes.statusCode ?? 502, upstreamRes.statusMessage, responseHeaders)
     upstreamRes.pipe(res)
   })
@@ -51,12 +83,12 @@ export function proxyHttp(req: IncomingMessage, res: ServerResponse, target: Rem
   req.pipe(upstream)
 }
 
-export function bridgeWebSocket(socket: Duplex, head: Buffer, req: IncomingMessage, target: RemoteAccessConfig['target']): void {
+export function bridgeWebSocket(socket: Duplex, head: Buffer, req: IncomingMessage, target: RemoteAccessConfig['target'], upstreamCookie?: string): void {
   const upstreamUrl = `${target.protocol === 'https' ? 'wss' : 'ws'}://${target.host}:${target.port}${req.url ?? '/'}`
   const protocols = typeof req.headers['sec-websocket-protocol'] === 'string' ? req.headers['sec-websocket-protocol'].split(',').map((item) => item.trim()) : undefined
   const server = new WebSocketServer({ noServer: true, clientTracking: false, perMessageDeflate: false, maxPayload: 1024 * 1024 })
   server.handleUpgrade(req, socket, head, (client) => {
-    const upstream = new WebSocket(upstreamUrl, protocols, { headers: { host: `${target.host}:${target.port}` } })
+    const upstream = new WebSocket(upstreamUrl, protocols, { headers: { host: `${target.host}:${target.port}`, ...(upstreamCookie ? { cookie: upstreamCookie } : {}) } })
     const pending: Array<{ data: WebSocket.RawData; binary: boolean }> = []
     let pendingBytes = 0
     const maxPendingBytes = 1024 * 1024

@@ -1,0 +1,1 @@
+{"version":3,"file":"upstream-auth.d.ts","sourceRoot":"","sources":["../../src/gateway/upstream-auth.ts"],"names":[],"mappings":"AAEA,OAAO,KAAK,EAAE,kBAAkB,EAAE,MAAM,cAAc,CAAA;AAEtD,sFAAsF;AACtF,wBAAsB,cAAc,CAAC,MAAM,EAAE,kBAAkB,CAAC,QAAQ,CAAC,EAAE,gBAAgB,EAAE,MAAM,MAAM,GAAG,OAAO,CAAC,MAAM,CAAC,CAsB1H"}

@@ -88,6 +88,79 @@ test('gateway authenticates then proxies HTTP and enforces CSRF logout', async (
   }
 })
 
+test('upstream response cannot override gateway security policy or redirect outside gateway', async () => {
+  const upstream = createServer((req, res) => {
+    res.writeHead(302, { location: req.url === '/redirect-local' ? `http://127.0.0.1:${upstreamPort}/app` : 'https://attacker.example/capture', 'x-frame-options': 'ALLOWALL', 'access-control-allow-origin': '*', 'set-cookie': 'evil=1' })
+    res.end()
+  })
+  const upstreamPort = await listen(upstream)
+  const probe = createServer()
+  const gatewayPort = await listen(probe)
+  await new Promise<void>((resolve) => probe.close(() => resolve()))
+  const gateway = new RemoteGateway(config(upstreamPort, gatewayPort), await hashPassword('correct horse battery staple'))
+  await gateway.start()
+  const base = `http://127.0.0.1:${gatewayPort}`
+  try {
+    const { cookie } = await login(base)
+    const local = await fetch(`${base}/redirect-local`, { headers: { cookie }, redirect: 'manual' })
+    assert.equal(local.status, 302)
+    assert.equal(local.headers.get('location'), '/app')
+    assert.equal(local.headers.get('x-frame-options'), 'DENY')
+    assert.equal(local.headers.get('access-control-allow-origin'), null)
+    assert.equal(local.headers.get('set-cookie'), null)
+    const external = await fetch(`${base}/redirect-external`, { headers: { cookie }, redirect: 'manual' })
+    assert.equal(external.status, 502)
+    assert.equal(external.headers.get('location'), null)
+  } finally {
+    await gateway.stop()
+    await new Promise<void>((resolve) => upstream.close(() => resolve()))
+  }
+})
+
+test('private Connection exchange authenticates upstream without exposing its cookie or token', async () => {
+  const issued = 'dsh-auth-example=v1.secret.signature'
+  const upstream = createServer((req, res) => {
+    if (req.url === '/?token=private-launch-token' && req.headers.host === `127.0.0.1:${upstreamPort}`) {
+      res.writeHead(303, { location: './', 'set-cookie': `${issued}; Path=/; HttpOnly` })
+      res.end()
+      return
+    }
+    if (req.headers.cookie !== issued) { res.writeHead(401); res.end('upstream login required'); return }
+    res.writeHead(200, { 'content-type': 'application/json', 'set-cookie': `${issued}; Path=/; HttpOnly` })
+    res.end(JSON.stringify({ path: req.url, cookie: req.headers.cookie }))
+  })
+  const upstreamPort = await listen(upstream)
+  const probe = createServer()
+  const gatewayPort = await listen(probe)
+  await new Promise<void>((resolve) => probe.close(() => resolve()))
+  let exchanges = 0
+  const gateway = new RemoteGateway(config(upstreamPort, gatewayPort), await hashPassword('correct horse battery staple'), () => {
+    exchanges++
+    return `http://127.0.0.1:${upstreamPort}/?token=private-launch-token`
+  })
+  await gateway.start()
+  const base = `http://127.0.0.1:${gatewayPort}`
+  try {
+    const { cookie, csrfToken } = await login(base)
+    const response = await fetch(`${base}/app`, { headers: { cookie } })
+    assert.equal(response.status, 200)
+    assert.equal(response.headers.get('set-cookie'), null)
+    assert.deepEqual(await response.json(), { path: '/app', cookie: issued })
+    assert.equal(exchanges, 1)
+    assert.equal((await fetch(`${base}/app`, { headers: { cookie } })).status, 200)
+    assert.equal(exchanges, 1)
+    assert.equal((await fetch(`${base}/_dsh_remote/session`, { headers: { cookie } })).status, 200)
+    assert.deepEqual(await (await fetch(`${base}/_dsh_remote/session`, { headers: { cookie } })).json(), { csrfToken })
+    assert.equal((await fetch(`${base}/?token=private-launch-token`, { headers: { cookie } })).status, 400)
+    const logout = await fetch(`${base}/_dsh_remote/logout`, { method: 'POST', headers: { cookie, origin: base, 'x-csrf-token': csrfToken } })
+    assert.equal(logout.status, 204)
+    assert.equal((await fetch(`${base}/_dsh_remote/session`, { headers: { cookie } })).status, 401)
+  } finally {
+    await gateway.stop()
+    await new Promise<void>((resolve) => upstream.close(() => resolve()))
+  }
+})
+
 test('browser navigation opens login while APIs remain private and favicon stays quiet', async () => {
   const upstream = createServer((_req, res) => { res.writeHead(200, { 'content-type': 'text/html' }); res.end('<h1>Private DSH</h1>') })
   const upstreamPort = await listen(upstream)

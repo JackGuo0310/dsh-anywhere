@@ -8,7 +8,7 @@ export { CONFIG_VERSION, assertSafeConfig, configSchema, migrateConfig } from '.
  * DSH Host plugin entry point. The gateway lifecycle is intentionally separate
  * from DSH's own webserver so it never exposes the original listener.
  */
-export const inject = ['configEditor', 'credentials', 'typertGateway']
+export const inject = ['configEditor', 'credentials', 'typertGateway', 'connection']
 
 export async function apply(ctx: Context, rawConfig: RemoteAccessConfig): Promise<void> {
   const config = assertSafeConfig(rawConfig)
