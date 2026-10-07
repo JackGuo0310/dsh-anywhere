@@ -214,7 +214,7 @@
   // src/client-module.ts
   var sectionId = "dsh-remote-access";
   var remoteNamespace = "dshRemoteAccess";
-  var pluginVersion = "0.1.20";
+  var pluginVersion = "0.1.21";
   var defaults = {
     enabled: false,
     mode: "loopback",
