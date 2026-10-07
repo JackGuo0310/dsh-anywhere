@@ -114,7 +114,7 @@ function SettingsSection({ t, call, React }) {
     finally {
         setBusy('');
     } }, [call, confirmPassword, currentPassword, newPassword, status.administratorConfigured, t]);
-    const input = (key, label, type = 'text', wide = false) => h('label', { className: wide ? 'wide' : '' }, t(label), h('input', { type, value: form[key], disabled: !!busy, onChange: (e) => set(key, e.target.value) }));
+    const input = (key, label, type = 'text', wide = false) => h('label', { className: wide ? 'wide' : '' }, t(label), h('input', { type, value: form[key], disabled: !!busy, onWheel: type === 'number' ? (e) => e.currentTarget.blur() : undefined, onChange: (e) => set(key, e.target.value) }));
     const select = (key, label, options) => h('label', null, t(label), h('select', { value: form[key], disabled: !!busy, onChange: (e) => set(key, e.target.value) }, ...options.map(([value, labelKey]) => h('option', { value, key: value }, t(labelKey)))));
     const check = (key, label) => h('label', { className: 'dsh-remote-check' }, h('input', { type: 'checkbox', checked: form[key] === true, disabled: !!busy, onChange: (e) => set(key, e.target.checked) }), t(label));
     const configured = objectOf(status.configured), tunnel = objectOf(status.tunnel);

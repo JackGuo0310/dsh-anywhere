@@ -17,7 +17,7 @@ type Credentials = {
 
 type PasswordChangeRequest = { currentPassword?: unknown, newPassword?: unknown }
 type FullConfigRequest = { config?: unknown, secrets?: unknown }
-type ConfigEditorEntry = { id?: string, name?: string }
+type ConfigEditorEntry = { options?: { id?: string, name?: string } }
 type ConfigEditor = {
   entries(): ConfigEditorEntry[]
   edit(entry: ConfigEditorEntry, change: (current: Record<string, unknown>, inherited: Record<string, unknown>) => Record<string, unknown>): Promise<void>
@@ -106,7 +106,7 @@ export class RemoteAccessService extends TypertRemoteService {
     for (const [ref, value] of secretWrites) if (ref && value) await this.credentials().set(ref, value)
     const editor = this.ctx.get('configEditor') as ConfigEditor | undefined
     if (!editor) throw new Error('DSH configuration editor is unavailable.')
-    const entry = editor.entries().find((item) => item.id === 'dsh-remote-access' || item.name === '@dsh-community/dsh-remote-access')
+    const entry = editor.entries().find((item) => item.options?.id === 'dsh-remote-access' || item.options?.name === '@dsh-community/dsh-remote-access')
     if (!entry) throw new Error('Remote access configuration entry was not found.')
     await editor.edit(entry, () => ({ ...next }))
     return { saved: true, secretsUpdated: secretWrites.filter(([ref, value]) => ref && value).length }

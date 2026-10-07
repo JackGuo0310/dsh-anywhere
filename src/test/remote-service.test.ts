@@ -41,7 +41,7 @@ test('common settings are persisted through configEditor', async () => {
     async set(ref: string, value: string) { values.set(ref, value) },
   }
   const configEditor = {
-    entries: () => [{ id: 'dsh-remote-access', name: '@dsh-community/dsh-remote-access' }],
+    entries: () => [{ options: { id: 'dsh-remote-access', name: '@dsh-community/dsh-remote-access' } }],
     async edit(_entry: unknown, change: (current: Record<string, unknown>, inherited: Record<string, unknown>) => Record<string, unknown>) { saved = change({ enabled: false }, {}) },
   }
   ;(ctx as unknown as { get(name: string): unknown }).get = (name: string) => name === 'credentials' ? credentials : name === 'configEditor' ? configEditor : undefined
@@ -65,7 +65,7 @@ test('full FRP settings and new secrets are persisted without returning secret v
     async set(ref: string, value: string) { values.set(ref, value) },
   }
   const configEditor = {
-    entries: () => [{ id: 'dsh-remote-access' }],
+    entries: () => [{ options: { id: 'dsh-remote-access' } }],
     async edit(_entry: unknown, change: (current: Record<string, unknown>) => Record<string, unknown>) { saved = change({}) },
   }
   ;(ctx as unknown as { get(name: string): unknown }).get = (name: string) => name === 'credentials' ? credentials : name === 'configEditor' ? configEditor : undefined
