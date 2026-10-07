@@ -80,7 +80,7 @@ export function isTrustedProxy(remoteAddress, trusted) {
 export function effectiveAuthority(req, trustedProxies) {
     const fromProxy = isTrustedProxy(req.socket.remoteAddress, trustedProxies);
     const forwarded = fromProxy ? req.headers['x-forwarded-host'] : undefined;
-    const candidate = typeof forwarded === 'string' ? forwarded.split(',')[0].trim() : req.headers.host;
+    const candidate = typeof forwarded === 'string' && !forwarded.includes(',') ? forwarded.trim() : fromProxy && forwarded !== undefined ? undefined : req.headers.host;
     return candidate ? canonicalAuthority(candidate) : undefined;
 }
 export function websocketOriginAllowed(req, allowedAuthorities, trustedProxies, publicBaseUrl) {
@@ -115,7 +115,7 @@ export function proxyWriteAllowed(req, allowedAuthorities, trustedProxies, publi
     if (req.headers.origin !== undefined)
         return websocketOriginAllowed(req, allowedAuthorities, trustedProxies, publicBaseUrl);
     if (fetchSite === 'same-origin')
-        return true;
+        return hostAllowed(req, allowedAuthorities, trustedProxies) && (!publicBaseUrl || effectiveAuthority(req, trustedProxies) === new URL(publicBaseUrl).host.toLowerCase());
     const referer = req.headers.referer;
     if (typeof referer !== 'string')
         return false;
@@ -134,8 +134,8 @@ export function hostAllowed(req, allowedAuthorities, trustedProxies) {
 export function remoteClientIp(req, trustedProxies) {
     if (isTrustedProxy(req.socket.remoteAddress, trustedProxies)) {
         const forwarded = req.headers['x-forwarded-for'];
-        if (typeof forwarded === 'string')
-            return forwarded.split(',')[0].trim();
+        if (typeof forwarded === 'string' && !forwarded.includes(',') && isIP(forwarded.trim()) !== 0)
+            return forwarded.trim();
     }
     return req.socket.remoteAddress ?? 'unknown';
 }

@@ -36,6 +36,7 @@ export class RemoteGateway {
   private readonly allowedAuthorities: string[]
   private readonly upstreamSessions = new Map<string, string>()
   private readonly pendingUpstreamSessions = new Map<string, Promise<string>>()
+  private readonly sessionGenerations = new Map<string, number>()
   private authEpoch = 0
 
   constructor(private readonly config: RemoteAccessConfig, passwordHash?: string, private readonly authenticatedUrl?: () => string) {
@@ -79,6 +80,7 @@ export class RemoteGateway {
     this.authEpoch++
     this.upstreamSessions.clear()
     this.pendingUpstreamSessions.clear()
+    this.sessionGenerations.clear()
     this.auth.revokeAll()
     if (!server) return
     server.closeAllConnections()
@@ -95,10 +97,11 @@ export class RemoteGateway {
     this.authEpoch++
     this.upstreamSessions.clear()
     this.pendingUpstreamSessions.clear()
+    this.sessionGenerations.clear()
     return hash
   }
   passwordRecord(): string | undefined { return this.auth.passwordRecord() }
-  revokeAllSessions(): void { this.authEpoch++; this.auth.revokeAll(); this.upstreamSessions.clear(); this.pendingUpstreamSessions.clear() }
+  revokeAllSessions(): void { this.authEpoch++; this.auth.revokeAll(); this.upstreamSessions.clear(); this.pendingUpstreamSessions.clear(); this.sessionGenerations.clear() }
 
   private async privateCookie(sessionId: string): Promise<string | undefined> {
     if (!this.auth.sessions.get(sessionId)) { this.upstreamSessions.delete(sessionId); return undefined }
@@ -108,8 +111,10 @@ export class RemoteGateway {
     const pending = this.pendingUpstreamSessions.get(sessionId)
     if (pending) return pending
     const epoch = this.authEpoch
+    const session = this.auth.sessions.get(sessionId)
+    const generation = this.sessionGenerations.get(sessionId) ?? 0
     const exchange = upstreamCookie(this.config.target, this.authenticatedUrl).then((cookie) => {
-      if (epoch !== this.authEpoch || !this.auth.sessions.get(sessionId)) return ''
+      if (epoch !== this.authEpoch || (this.sessionGenerations.get(sessionId) ?? 0) !== generation || this.auth.sessions.get(sessionId) !== session) return ''
       this.upstreamSessions.set(sessionId, cookie)
       return cookie
     })
@@ -188,7 +193,7 @@ export class RemoteGateway {
     if (pathname === '/_dsh_remote/logout' && req.method === 'POST') {
       if (!originAllowed(req, this.allowedAuthorities, this.config.trustedProxyCidrs, this.config.publicBaseUrl) || !this.auth.requireCsrf(req)) return this.json(res, 403, { error: 'CSRF check failed.' })
       const session = this.auth.requireSession(req)
-      if (session) { this.upstreamSessions.delete(session.id); this.pendingUpstreamSessions.delete(session.id) }
+      if (session) { this.sessionGenerations.set(session.id, (this.sessionGenerations.get(session.id) ?? 0) + 1); this.upstreamSessions.delete(session.id); this.pendingUpstreamSessions.delete(session.id) }
       this.auth.logout(req, res)
       res.writeHead(204)
       res.end()

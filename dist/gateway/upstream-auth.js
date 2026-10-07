@@ -2,7 +2,7 @@ import { request as httpRequest } from 'node:http';
 import { request as httpsRequest } from 'node:https';
 /** Exchange Connection's process launch token only over the private upstream link. */
 export async function upstreamCookie(target, authenticatedUrl) {
-    const expected = `${target.protocol}://${target.host}:${target.port}`;
+    const expected = new URL(`${target.protocol}://${target.host}:${target.port}`).origin;
     const url = new URL(authenticatedUrl());
     if (url.origin !== expected || url.pathname !== '/' || url.searchParams.size !== 1 || !url.searchParams.has('token') || !url.searchParams.get('token') || url.hash) {
         throw new Error('DSH Connection returned an invalid upstream authentication URL.');

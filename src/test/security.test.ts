@@ -4,8 +4,15 @@ import { hashPassword, verifyPassword } from '../security/password.js'
 import { SessionStore } from '../security/session-store.js'
 import { SlidingWindowRateLimiter } from '../security/rate-limit.js'
 import { redactValue } from '../security/redact.js'
-import { canonicalAuthority, isTrustedProxy, parseCookies } from '../security/request-policy.js'
+import { canonicalAuthority, isTrustedProxy, parseCookies, effectiveAuthority, remoteClientIp } from '../security/request-policy.js'
+import type { IncomingMessage } from 'node:http'
 import { AuthService } from '../security/auth.js'
+
+test('trusted proxy rejects ambiguous forwarding chains', () => {
+  const request = { socket: { remoteAddress: '127.0.0.1' }, headers: { host: '127.0.0.1:4173', 'x-forwarded-host': 'good.example, evil.example', 'x-forwarded-for': '203.0.113.1, 192.168.1.2' } } as unknown as IncomingMessage
+  assert.equal(effectiveAuthority(request, ['127.0.0.1']), undefined)
+  assert.equal(remoteClientIp(request, ['127.0.0.1']), '127.0.0.1')
+})
 
 test('password hash verifies only the original password', async () => {
   const hash = await hashPassword('correct horse battery staple')

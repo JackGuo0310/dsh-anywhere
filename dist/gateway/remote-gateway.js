@@ -34,6 +34,7 @@ export class RemoteGateway {
     allowedAuthorities;
     upstreamSessions = new Map();
     pendingUpstreamSessions = new Map();
+    sessionGenerations = new Map();
     authEpoch = 0;
     constructor(config, passwordHash, authenticatedUrl) {
         this.config = config;
@@ -78,6 +79,7 @@ export class RemoteGateway {
         this.authEpoch++;
         this.upstreamSessions.clear();
         this.pendingUpstreamSessions.clear();
+        this.sessionGenerations.clear();
         this.auth.revokeAll();
         if (!server)
             return;
@@ -95,10 +97,11 @@ export class RemoteGateway {
         this.authEpoch++;
         this.upstreamSessions.clear();
         this.pendingUpstreamSessions.clear();
+        this.sessionGenerations.clear();
         return hash;
     }
     passwordRecord() { return this.auth.passwordRecord(); }
-    revokeAllSessions() { this.authEpoch++; this.auth.revokeAll(); this.upstreamSessions.clear(); this.pendingUpstreamSessions.clear(); }
+    revokeAllSessions() { this.authEpoch++; this.auth.revokeAll(); this.upstreamSessions.clear(); this.pendingUpstreamSessions.clear(); this.sessionGenerations.clear(); }
     async privateCookie(sessionId) {
         if (!this.auth.sessions.get(sessionId)) {
             this.upstreamSessions.delete(sessionId);
@@ -113,8 +116,10 @@ export class RemoteGateway {
         if (pending)
             return pending;
         const epoch = this.authEpoch;
+        const session = this.auth.sessions.get(sessionId);
+        const generation = this.sessionGenerations.get(sessionId) ?? 0;
         const exchange = upstreamCookie(this.config.target, this.authenticatedUrl).then((cookie) => {
-            if (epoch !== this.authEpoch || !this.auth.sessions.get(sessionId))
+            if (epoch !== this.authEpoch || (this.sessionGenerations.get(sessionId) ?? 0) !== generation || this.auth.sessions.get(sessionId) !== session)
                 return '';
             this.upstreamSessions.set(sessionId, cookie);
             return cookie;
@@ -207,6 +212,7 @@ export class RemoteGateway {
                 return this.json(res, 403, { error: 'CSRF check failed.' });
             const session = this.auth.requireSession(req);
             if (session) {
+                this.sessionGenerations.set(session.id, (this.sessionGenerations.get(session.id) ?? 0) + 1);
                 this.upstreamSessions.delete(session.id);
                 this.pendingUpstreamSessions.delete(session.id);
             }

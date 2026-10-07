@@ -40,13 +40,17 @@ export function proxyHttp(req: IncomingMessage, res: ServerResponse, target: Rem
     delete responseHeaders['reporting-endpoints']
     for (const header of hopByHop) delete responseHeaders[header]
     const location = responseHeaders.location
-    if (typeof location === 'string' && !/^https?:\/\//i.test(location) && (!location.startsWith('/') || location.startsWith('//'))) delete responseHeaders.location
+    if (typeof location === 'string' && !/^https?:\/\//i.test(location) && (!location.startsWith('/') || location.startsWith('//') || /%0[ad]/i.test(location))) delete responseHeaders.location
     if (typeof location === 'string' && /^https?:\/\//i.test(location)) {
       try {
         const url = new URL(location)
-        if (url.origin === `${target.protocol}://${target.host}:${target.port}`) responseHeaders.location = url.pathname + url.search + url.hash
+        if (url.origin === new URL(`${target.protocol}://${target.host}:${target.port}`).origin && !url.searchParams.has('token')) responseHeaders.location = url.pathname + url.search + url.hash
         else delete responseHeaders.location
       } catch { delete responseHeaders.location }
+    }
+    if (typeof responseHeaders.location === 'string') {
+      try { if (new URL(responseHeaders.location, 'http://gateway.invalid').searchParams.has('token')) delete responseHeaders.location }
+      catch { delete responseHeaders.location }
     }
     for (const header of ['x-content-type-options', 'x-frame-options', 'referrer-policy', 'permissions-policy', 'cross-origin-opener-policy', 'cross-origin-resource-policy', 'cache-control']) delete responseHeaders[header]
     if (typeof location === 'string' && !responseHeaders.location && (upstreamRes.statusCode ?? 0) >= 300 && (upstreamRes.statusCode ?? 0) < 400) {
@@ -89,6 +93,8 @@ export function bridgeWebSocket(socket: Duplex, head: Buffer, req: IncomingMessa
   const server = new WebSocketServer({ noServer: true, clientTracking: false, perMessageDeflate: false, maxPayload: 1024 * 1024 })
   server.handleUpgrade(req, socket, head, (client) => {
     const upstream = new WebSocket(upstreamUrl, protocols, { headers: { host: `${target.host}:${target.port}`, ...(upstreamCookie ? { cookie: upstreamCookie } : {}) } })
+    const maxBufferedBytes = 8 * 1024 * 1024
+    const closeUpstream = () => upstream.readyState === WebSocket.CONNECTING ? upstream.terminate() : upstream.close()
     const pending: Array<{ data: WebSocket.RawData; binary: boolean }> = []
     let pendingBytes = 0
     const maxPendingBytes = 1024 * 1024
@@ -101,12 +107,15 @@ export function bridgeWebSocket(socket: Duplex, head: Buffer, req: IncomingMessa
     connectTimeout.unref()
     client.on('message', (data, isBinary) => {
       const message = { data, binary: isBinary }
-      if (upstream.readyState === WebSocket.OPEN) upstream.send(message.data, { binary: message.binary })
+      if (upstream.readyState === WebSocket.OPEN) {
+        if (upstream.bufferedAmount > maxBufferedBytes) { client.close(1009, 'Upstream buffer limit exceeded'); closeUpstream(); return }
+        upstream.send(message.data, { binary: message.binary })
+      }
       else if (upstream.readyState === WebSocket.CONNECTING) {
         pendingBytes += typeof data === 'string' ? Buffer.byteLength(data) : data instanceof ArrayBuffer ? data.byteLength : Array.isArray(data) ? data.reduce((sum, chunk) => sum + chunk.length, 0) : data.length
         if (pendingBytes > maxPendingBytes) {
           client.close(1009, 'Pending message limit exceeded')
-          upstream.close()
+          closeUpstream()
           return
         }
         pending.push(message)
@@ -114,13 +123,20 @@ export function bridgeWebSocket(socket: Duplex, head: Buffer, req: IncomingMessa
     })
     upstream.on('open', () => {
       clearTimeout(connectTimeout)
-      for (const message of pending) upstream.send(message.data, { binary: message.binary })
+      for (const message of pending) {
+        if (upstream.bufferedAmount > maxBufferedBytes) { client.close(1009, 'Upstream buffer limit exceeded'); closeUpstream(); break }
+        upstream.send(message.data, { binary: message.binary })
+      }
       pending.length = 0
       pendingBytes = 0
     })
-    client.on('close', () => upstream.close())
-    client.on('error', () => upstream.close())
-    upstream.on('message', (data, isBinary) => { if (client.readyState === WebSocket.OPEN) client.send(data, { binary: isBinary }) })
+    client.on('close', closeUpstream)
+    client.on('error', closeUpstream)
+    upstream.on('message', (data, isBinary) => {
+      if (client.readyState !== WebSocket.OPEN) return
+      if (client.bufferedAmount > maxBufferedBytes) { client.close(1009, 'Client buffer limit exceeded'); closeUpstream(); return }
+      client.send(data, { binary: isBinary })
+    })
     upstream.on('close', () => { clearTimeout(connectTimeout); client.close() })
     upstream.on('error', () => { clearTimeout(connectTimeout); client.close(1011, 'Upstream unavailable') })
   })
