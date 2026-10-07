@@ -38,12 +38,16 @@ async function login(base: string): Promise<{ cookie: string; csrfToken: string 
 }
 
 /** `fetch` rewrites a Host header, so Host-header routing checks need a raw client. */
-function requestWithHost(port: number, headers: Record<string, string>, method = 'GET', body?: string): Promise<number> {
+function responseWithHost(port: number, headers: Record<string, string>, method = 'GET', body?: string): Promise<{ status: number, headers: Record<string, string | string[] | undefined> }> {
   return new Promise((resolve, reject) => {
-    const request = httpRequest({ host: '127.0.0.1', port, path: '/_dsh_remote/health', method, headers }, (response) => { response.resume(); resolve(response.statusCode ?? 0) })
+    const request = httpRequest({ host: '127.0.0.1', port, path: '/_dsh_remote/health', method, headers }, (response) => { response.resume(); resolve({ status: response.statusCode ?? 0, headers: response.headers }) })
     request.on('error', reject)
     request.end(body)
   })
+}
+
+async function requestWithHost(port: number, headers: Record<string, string>, method = 'GET', body?: string): Promise<number> {
+  return (await responseWithHost(port, headers, method, body)).status
 }
 
 function openSocket(url: string, headers: Record<string, string>): Promise<WebSocket> {
@@ -329,6 +333,11 @@ test('a wildcard listener serves local IP literals and still rejects foreign Hos
     assert.equal(await requestWithHost(gatewayPort, { host: `localhost:${gatewayPort}` }), 200)
     assert.equal(await requestWithHost(gatewayPort, { host: `192.168.1.5:${gatewayPort}` }), 200)
     assert.equal(await requestWithHost(gatewayPort, { host: `100.101.102.103:${gatewayPort}` }), 200)
+    // COOP is only honoured on a trustworthy origin, so it must be omitted elsewhere.
+    assert.equal((await responseWithHost(gatewayPort, { host: `127.0.0.1:${gatewayPort}` })).headers['cross-origin-opener-policy'], 'same-origin')
+    assert.equal((await responseWithHost(gatewayPort, { host: `localhost:${gatewayPort}` })).headers['cross-origin-opener-policy'], 'same-origin')
+    assert.equal((await responseWithHost(gatewayPort, { host: `100.101.102.103:${gatewayPort}` })).headers['cross-origin-opener-policy'], undefined)
+    assert.equal((await responseWithHost(gatewayPort, { host: `192.168.1.5:${gatewayPort}` })).headers['cross-origin-opener-policy'], undefined)
     assert.equal(await requestWithHost(gatewayPort, { host: `evil.example:${gatewayPort}` }), 421)
     assert.equal(await requestWithHost(gatewayPort, { host: `127.0.0.1:${gatewayPort}` }), 200)
     const navigation = await fetch(`${base}/`, { headers: { accept: 'text/html' }, redirect: 'manual' })

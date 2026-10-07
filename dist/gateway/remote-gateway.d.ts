@@ -22,6 +22,8 @@ export declare class RemoteGateway {
     private pruneUpstreamSessions;
     private privateCookie;
     private writeSecurity;
+    /** Chrome honours COOP only on HTTPS or a loopback origin; elsewhere it just warns. */
+    private trustworthyOrigin;
     private json;
     private showLogin;
     private loginRedirect;

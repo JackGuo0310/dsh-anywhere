@@ -4,7 +4,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { URL } from 'node:url'
 import { isWildcardListenHost, type RemoteAccessConfig } from '../config.js'
 import { AuthService } from '../security/auth.js'
-import { hostAllowed, originAllowed, proxyWriteAllowed, websocketOriginAllowed } from '../security/request-policy.js'
+import { effectiveAuthority, hostAllowed, originAllowed, proxyWriteAllowed, websocketOriginAllowed } from '../security/request-policy.js'
 import { loginPage } from './login-page.js'
 import { proxyHttp, bridgeWebSocket } from './proxy.js'
 import { upstreamCookie } from './upstream-auth.js'
@@ -14,10 +14,13 @@ const SECURITY_HEADERS: Record<string, string> = {
   'x-frame-options': 'DENY',
   'referrer-policy': 'no-referrer',
   'permissions-policy': 'camera=(), microphone=(), geolocation=()',
-  'cross-origin-opener-policy': 'same-origin',
   'cross-origin-resource-policy': 'same-origin',
   'cache-control': 'no-store'
 }
+
+// Browsers ignore Cross-Origin-Opener-Policy on an untrustworthy origin and log a
+// console warning for it, so send it only where it can actually take effect.
+const COOP_HEADER = 'cross-origin-opener-policy'
 
 const favicon = readFileSync(new URL('../../icon.svg', import.meta.url))
 const loginScript = loginPage.match(/<script>([\s\S]*?)<\/script>/)?.[1]
@@ -134,7 +137,19 @@ export class RemoteGateway {
     finally { if (this.pendingUpstreamSessions.get(sessionId) === exchange) this.pendingUpstreamSessions.delete(sessionId) }
   }
 
-  private writeSecurity(res: ServerResponse): void { for (const [key, value] of Object.entries(SECURITY_HEADERS)) res.setHeader(key, value) }
+  private writeSecurity(res: ServerResponse, trustworthyOrigin = false): void {
+    for (const [key, value] of Object.entries(SECURITY_HEADERS)) res.setHeader(key, value)
+    if (trustworthyOrigin) res.setHeader(COOP_HEADER, 'same-origin')
+  }
+
+  /** Chrome honours COOP only on HTTPS or a loopback origin; elsewhere it just warns. */
+  private trustworthyOrigin(req: IncomingMessage): boolean {
+    if (this.config.publicBaseUrl?.startsWith('https://')) return true
+    const authority = effectiveAuthority(req, this.config.trustedProxyCidrs)
+    if (!authority) return false
+    const host = (authority.startsWith('[') ? authority.slice(0, authority.indexOf(']') + 1) : authority.split(':')[0]).replace(/^\[|\]$/g, '').toLowerCase()
+    return host === 'localhost' || host === '::1' || host.startsWith('127.')
+  }
   private json(res: ServerResponse, status: number, body: unknown): void {
     this.writeSecurity(res)
     res.writeHead(status, { 'content-type': 'application/json; charset=utf-8' })
@@ -168,7 +183,7 @@ export class RemoteGateway {
   }
 
   private async handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
-    this.writeSecurity(res)
+    this.writeSecurity(res, this.trustworthyOrigin(req))
     if (!hostAllowed(req, this.allowedAuthorities, this.config.trustedProxyCidrs, this.wildcardListen)) return this.json(res, 421, { error: 'Unrecognized Host header.' })
     const url = new URL(req.url ?? '/', 'http://gateway.invalid')
     const pathname = url.pathname
