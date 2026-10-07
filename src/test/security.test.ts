@@ -4,9 +4,25 @@ import { hashPassword, verifyPassword } from '../security/password.js'
 import { SessionStore } from '../security/session-store.js'
 import { SlidingWindowRateLimiter } from '../security/rate-limit.js'
 import { redactValue } from '../security/redact.js'
-import { canonicalAuthority, isTrustedProxy, parseCookies, effectiveAuthority, remoteClientIp } from '../security/request-policy.js'
+import { canonicalAuthority, isTrustedProxy, parseCookies, effectiveAuthority, remoteClientIp, hostAllowed } from '../security/request-policy.js'
 import type { IncomingMessage } from 'node:http'
 import { AuthService } from '../security/auth.js'
+
+test('wildcard listeners accept local IP literals but never arbitrary names', () => {
+  const authorities = ['0.0.0.0:4173']
+  const requestFor = (host: string) => ({ socket: { remoteAddress: '127.0.0.1' }, headers: { host } }) as unknown as IncomingMessage
+  assert.equal(hostAllowed(requestFor('127.0.0.1:4173'), authorities, [], true), true)
+  assert.equal(hostAllowed(requestFor('localhost:4173'), authorities, [], true), true)
+  assert.equal(hostAllowed(requestFor('192.168.1.5:4173'), authorities, [], true), true)
+  assert.equal(hostAllowed(requestFor('100.101.102.103:4173'), authorities, [], true), true)
+  assert.equal(hostAllowed(requestFor('[fd7a::1]:4173'), authorities, [], true), true)
+  assert.equal(hostAllowed(requestFor('evil.example:4173'), authorities, [], true), false)
+  assert.equal(hostAllowed(requestFor('evil.example:4173'), authorities, [], false), false)
+  // A tunnel deployment keeps exact matching: the gateway disables wildcard acceptance
+  // whenever a publicBaseUrl pins the authority.
+  assert.equal(hostAllowed(requestFor('192.168.1.5:4173'), ['dsh.example.com'], [], false), false)
+  assert.equal(hostAllowed(requestFor('dsh.example.com'), ['dsh.example.com'], [], false), true)
+})
 
 test('trusted proxy rejects ambiguous forwarding chains', () => {
   const request = { socket: { remoteAddress: '127.0.0.1' }, headers: { host: '127.0.0.1:4173', 'x-forwarded-host': 'good.example, evil.example', 'x-forwarded-for': '203.0.113.1, 192.168.1.2' } } as unknown as IncomingMessage

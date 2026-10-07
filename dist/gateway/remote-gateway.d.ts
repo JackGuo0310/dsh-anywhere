@@ -1,4 +1,4 @@
-import type { RemoteAccessConfig } from '../config.js';
+import { type RemoteAccessConfig } from '../config.js';
 export declare class RemoteGateway {
     private readonly config;
     private readonly authenticatedUrl?;
@@ -6,6 +6,7 @@ export declare class RemoteGateway {
     private readonly sockets;
     private readonly auth;
     private readonly allowedAuthorities;
+    private readonly wildcardListen;
     private readonly upstreamSessions;
     private readonly pendingUpstreamSessions;
     private readonly sessionGenerations;

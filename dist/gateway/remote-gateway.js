@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { URL } from 'node:url';
+import { isWildcardListenHost } from '../config.js';
 import { AuthService } from '../security/auth.js';
 import { hostAllowed, originAllowed, proxyWriteAllowed, websocketOriginAllowed } from '../security/request-policy.js';
 import { loginPage } from './login-page.js';
@@ -34,6 +35,7 @@ export class RemoteGateway {
     sockets = new Set();
     auth;
     allowedAuthorities;
+    wildcardListen;
     upstreamSessions = new Map();
     pendingUpstreamSessions = new Map();
     sessionGenerations = new Map();
@@ -42,6 +44,7 @@ export class RemoteGateway {
         this.config = config;
         this.authenticatedUrl = authenticatedUrl;
         const publicAuthority = config.publicBaseUrl ? new URL(config.publicBaseUrl).host.toLowerCase() : undefined;
+        this.wildcardListen = !publicAuthority && isWildcardListenHost(config.listenHost);
         this.allowedAuthorities = [...new Set([`${config.listenHost}:${config.listenPort}`.toLowerCase(), publicAuthority].filter(Boolean))];
         this.auth = new AuthService({
             passwordHash,
@@ -181,7 +184,7 @@ export class RemoteGateway {
     }
     async handle(req, res) {
         this.writeSecurity(res);
-        if (!hostAllowed(req, this.allowedAuthorities, this.config.trustedProxyCidrs))
+        if (!hostAllowed(req, this.allowedAuthorities, this.config.trustedProxyCidrs, this.wildcardListen))
             return this.json(res, 421, { error: 'Unrecognized Host header.' });
         const url = new URL(req.url ?? '/', 'http://gateway.invalid');
         const pathname = url.pathname;
@@ -203,7 +206,7 @@ export class RemoteGateway {
             return this.showLogin(res);
         }
         if (pathname === '/_dsh_remote/login' && req.method === 'POST') {
-            if (!originAllowed(req, this.allowedAuthorities, this.config.trustedProxyCidrs, this.config.publicBaseUrl))
+            if (!originAllowed(req, this.allowedAuthorities, this.config.trustedProxyCidrs, this.config.publicBaseUrl, this.wildcardListen))
                 return this.json(res, 403, { error: 'Origin check failed.' });
             try {
                 const body = await this.readJson(req);
@@ -222,7 +225,7 @@ export class RemoteGateway {
             return this.json(res, session ? 200 : 401, session ? { csrfToken: session.csrfToken } : { error: 'Login required.' });
         }
         if (pathname === '/_dsh_remote/logout' && req.method === 'POST') {
-            if (!originAllowed(req, this.allowedAuthorities, this.config.trustedProxyCidrs, this.config.publicBaseUrl) || !this.auth.requireCsrf(req))
+            if (!originAllowed(req, this.allowedAuthorities, this.config.trustedProxyCidrs, this.config.publicBaseUrl, this.wildcardListen) || !this.auth.requireCsrf(req))
                 return this.json(res, 403, { error: 'CSRF check failed.' });
             const session = this.auth.requireSession(req);
             if (session) {
@@ -243,7 +246,7 @@ export class RemoteGateway {
                 return this.loginRedirect(res, req.url ?? '/');
             return this.json(res, 401, { error: 'Login required.' });
         }
-        if (!proxyWriteAllowed(req, this.allowedAuthorities, this.config.trustedProxyCidrs, this.config.publicBaseUrl))
+        if (!proxyWriteAllowed(req, this.allowedAuthorities, this.config.trustedProxyCidrs, this.config.publicBaseUrl, this.wildcardListen))
             return this.json(res, 403, { error: 'Origin check failed.' });
         const declaredLength = Number(req.headers['content-length'] ?? 0);
         if (Number.isFinite(declaredLength) && declaredLength > this.config.maxRequestBodyBytes)
@@ -265,7 +268,7 @@ export class RemoteGateway {
             socket.destroy();
             return;
         }
-        if (!hostAllowed(req, this.allowedAuthorities, this.config.trustedProxyCidrs) || !websocketOriginAllowed(req, this.allowedAuthorities, this.config.trustedProxyCidrs, this.config.publicBaseUrl) || !this.auth.requireSession(req)) {
+        if (!hostAllowed(req, this.allowedAuthorities, this.config.trustedProxyCidrs, this.wildcardListen) || !websocketOriginAllowed(req, this.allowedAuthorities, this.config.trustedProxyCidrs, this.config.publicBaseUrl, this.wildcardListen) || !this.auth.requireSession(req)) {
             socket.write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n');
             socket.destroy();
             return;

@@ -83,29 +83,34 @@ export function effectiveAuthority(req, trustedProxies) {
     const candidate = fromProxy && forwarded !== undefined ? typeof forwarded === 'string' && !forwarded.includes(',') ? forwarded.trim() : undefined : req.headers.host;
     return candidate ? canonicalAuthority(candidate) : undefined;
 }
-export function websocketOriginAllowed(req, allowedAuthorities, trustedProxies, publicBaseUrl) {
+export function websocketOriginAllowed(req, allowedAuthorities, trustedProxies, publicBaseUrl, wildcardListen = false) {
     const origin = req.headers.origin;
     if (!origin || typeof origin !== 'string')
         return false;
     try {
         const parsed = new URL(origin);
         const authority = effectiveAuthority(req, trustedProxies);
+        if (!authority)
+            return false;
         if (publicBaseUrl)
-            return parsed.origin === new URL(publicBaseUrl).origin && parsed.origin === origin && authority === parsed.host.toLowerCase() && !!authority && allowedAuthorities.includes(authority);
-        return (parsed.protocol === 'http:' || parsed.protocol === 'https:') && parsed.origin === origin && !!authority
-            && allowedAuthorities.includes(parsed.host.toLowerCase()) && parsed.host.toLowerCase() === authority;
+            return parsed.origin === new URL(publicBaseUrl).origin && parsed.origin === origin && authority === parsed.host.toLowerCase() && allowedAuthorities.includes(authority);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:')
+            return false;
+        if (parsed.origin !== origin || parsed.host.toLowerCase() !== authority)
+            return false;
+        return allowedAuthorities.includes(authority) || (wildcardListen && wildcardHostAccepted(authority));
     }
     catch {
         return false;
     }
 }
-export function originAllowed(req, allowedAuthorities, trustedProxies, publicBaseUrl) {
+export function originAllowed(req, allowedAuthorities, trustedProxies, publicBaseUrl, wildcardListen = false) {
     const method = req.method?.toUpperCase() ?? 'GET';
     if (['GET', 'HEAD', 'OPTIONS'].includes(method))
         return true;
-    return websocketOriginAllowed(req, allowedAuthorities, trustedProxies, publicBaseUrl);
+    return websocketOriginAllowed(req, allowedAuthorities, trustedProxies, publicBaseUrl, wildcardListen);
 }
-export function proxyWriteAllowed(req, allowedAuthorities, trustedProxies, publicBaseUrl) {
+export function proxyWriteAllowed(req, allowedAuthorities, trustedProxies, publicBaseUrl, wildcardListen = false) {
     const method = req.method?.toUpperCase() ?? 'GET';
     if (['GET', 'HEAD', 'OPTIONS'].includes(method))
         return true;
@@ -113,25 +118,45 @@ export function proxyWriteAllowed(req, allowedAuthorities, trustedProxies, publi
     if (fetchSite !== undefined && fetchSite !== 'same-origin' && fetchSite !== 'none')
         return false;
     if (req.headers.origin !== undefined)
-        return websocketOriginAllowed(req, allowedAuthorities, trustedProxies, publicBaseUrl);
+        return websocketOriginAllowed(req, allowedAuthorities, trustedProxies, publicBaseUrl, wildcardListen);
     if (fetchSite === 'same-origin') {
         const authority = effectiveAuthority(req, trustedProxies);
-        return !!authority && allowedAuthorities.includes(authority) && (!publicBaseUrl || authority === new URL(publicBaseUrl).host.toLowerCase());
+        if (!authority)
+            return false;
+        if (!allowedAuthorities.includes(authority) && !(wildcardListen && wildcardHostAccepted(authority)))
+            return false;
+        return !publicBaseUrl || authority === new URL(publicBaseUrl).host.toLowerCase();
     }
     const referer = req.headers.referer;
     if (typeof referer !== 'string')
         return false;
     try {
         const parsed = new URL(referer);
-        return websocketOriginAllowed({ ...req, headers: { ...req.headers, origin: parsed.origin } }, allowedAuthorities, trustedProxies, publicBaseUrl);
+        return websocketOriginAllowed({ ...req, headers: { ...req.headers, origin: parsed.origin } }, allowedAuthorities, trustedProxies, publicBaseUrl, wildcardListen);
     }
     catch {
         return false;
     }
 }
-export function hostAllowed(req, allowedAuthorities, trustedProxies) {
+/**
+ * A wildcard listener answers on every local address, so browsers legitimately send
+ * `127.0.0.1:port`, a LAN IP, or a Tailnet IP. Accept those IP literals and `localhost`,
+ * but never an arbitrary external name, which keeps Host-header routing confusion closed.
+ */
+export function wildcardHostAccepted(authority) {
+    const separator = authority.lastIndexOf(':');
+    if (separator < 0)
+        return authority === 'localhost';
+    const host = authority.slice(0, separator).replace(/^\[/, '').replace(/\]$/, '');
+    return host === 'localhost' || isIP(host) !== 0;
+}
+export function hostAllowed(req, allowedAuthorities, trustedProxies, wildcardListen = false) {
     const authority = effectiveAuthority(req, trustedProxies);
-    return !!authority && allowedAuthorities.includes(authority);
+    if (!authority)
+        return false;
+    if (allowedAuthorities.includes(authority))
+        return true;
+    return wildcardListen && wildcardHostAccepted(authority);
 }
 export function remoteClientIp(req, trustedProxies) {
     if (isTrustedProxy(req.socket.remoteAddress, trustedProxies)) {

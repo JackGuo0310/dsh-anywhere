@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createServer } from 'node:http'
+import { createServer, request as httpRequest } from 'node:http'
 import { once } from 'node:events'
 import { WebSocket, WebSocketServer } from 'ws'
 import { RemoteGateway } from '../gateway/remote-gateway.js'
@@ -15,9 +15,9 @@ async function listen(server: ReturnType<typeof createServer>): Promise<number> 
   return address.port
 }
 
-function config(targetPort: number, listenPort: number): RemoteAccessConfig {
+function config(targetPort: number, listenPort: number, listenHost = '127.0.0.1'): RemoteAccessConfig {
   return {
-    version: 1, enabled: true, listenHost: '127.0.0.1', listenPort, mode: 'direct',
+    version: 1, enabled: true, listenHost, listenPort, mode: 'direct',
     target: { host: '127.0.0.1', port: targetPort, protocol: 'http' }, publicBaseUrl: undefined,
     trustedProxyCidrs: [], sessionTtlMinutes: 60, maxRequestBodyBytes: 1_024_000,
     adminConfigured: true, adminPasswordSecretRef: 'DSH_REMOTE_ADMIN_HASH', frp: undefined,
@@ -35,6 +35,15 @@ async function login(base: string): Promise<{ cookie: string; csrfToken: string 
   const cookie = response.headers.get('set-cookie')?.split(';')[0]
   assert.ok(cookie)
   return { cookie, csrfToken }
+}
+
+/** `fetch` rewrites a Host header, so Host-header routing checks need a raw client. */
+function requestWithHost(port: number, headers: Record<string, string>, method = 'GET', body?: string): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const request = httpRequest({ host: '127.0.0.1', port, path: '/_dsh_remote/health', method, headers }, (response) => { response.resume(); resolve(response.statusCode ?? 0) })
+    request.on('error', reject)
+    request.end(body)
+  })
 }
 
 function openSocket(url: string, headers: Record<string, string>): Promise<WebSocket> {
@@ -299,5 +308,32 @@ test('gateway bridges authenticated WebSocket traffic', async () => {
   } finally {
     await gateway.stop()
     await new Promise<void>((resolve, reject) => upstream.close((error) => error ? reject(error) : resolve()))
+  }
+})
+
+test('a wildcard listener serves local IP literals and still rejects foreign Host headers', async () => {
+  const upstream = createServer((_req, res) => { res.writeHead(200, { 'content-type': 'text/html' }); res.end('<h1>Private DSH</h1>') })
+  const upstreamPort = await listen(upstream)
+  const probe = createServer()
+  const gatewayPort = await listen(probe)
+  await new Promise<void>((resolve) => probe.close(() => resolve()))
+  const gateway = new RemoteGateway(config(upstreamPort, gatewayPort, '0.0.0.0'), await hashPassword('correct horse battery staple'))
+  await gateway.start()
+  const base = `http://127.0.0.1:${gatewayPort}`
+  try {
+    assert.equal((await fetch(`${base}/_dsh_remote/health`)).status, 200)
+    assert.equal(await requestWithHost(gatewayPort, { host: `localhost:${gatewayPort}` }), 200)
+    assert.equal(await requestWithHost(gatewayPort, { host: `192.168.1.5:${gatewayPort}` }), 200)
+    assert.equal(await requestWithHost(gatewayPort, { host: `100.101.102.103:${gatewayPort}` }), 200)
+    assert.equal(await requestWithHost(gatewayPort, { host: `evil.example:${gatewayPort}` }), 421)
+    assert.equal(await requestWithHost(gatewayPort, { host: `127.0.0.1:${gatewayPort}` }), 200)
+    const navigation = await fetch(`${base}/`, { headers: { accept: 'text/html' }, redirect: 'manual' })
+    assert.equal(navigation.status, 303)
+    const { cookie } = await login(base)
+    assert.match(await (await fetch(`${base}/`, { headers: { cookie, accept: 'text/html' } })).text(), /Private DSH/)
+    assert.equal(await requestWithHost(gatewayPort, { host: `evil.example:${gatewayPort}`, cookie }, 'GET'), 421)
+  } finally {
+    await gateway.stop()
+    await new Promise<void>((resolve) => upstream.close(() => resolve()))
   }
 })

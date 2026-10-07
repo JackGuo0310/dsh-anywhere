@@ -51,6 +51,10 @@ export function isLoopbackHost(host) {
     const normal = host.toLowerCase();
     return normal === 'localhost' || normal === '::1' || normal.startsWith('127.');
 }
+/** Wildcard listeners accept any local address, so the Host check cannot compare a literal. */
+export function isWildcardListenHost(host) {
+    return host === '0.0.0.0' || host === '::';
+}
 export function assertSafeConfig(value) {
     const config = configSchema.parse(migrateConfig(value));
     const external = !isLoopbackHost(config.listenHost);

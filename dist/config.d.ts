@@ -177,6 +177,8 @@ export declare const configSchema: z.ZodObject<{
 }>;
 export type RemoteAccessConfig = z.infer<typeof configSchema>;
 export declare function isLoopbackHost(host: string): boolean;
+/** Wildcard listeners accept any local address, so the Host check cannot compare a literal. */
+export declare function isWildcardListenHost(host: string): boolean;
 export declare function assertSafeConfig(value: unknown): RemoteAccessConfig;
 export declare function migrateConfig(value: unknown): RemoteAccessConfig;
 export declare function validateFrpcPath(path: string): void;
