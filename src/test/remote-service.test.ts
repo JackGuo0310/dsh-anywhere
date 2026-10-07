@@ -119,6 +119,68 @@ test('full FRP settings and new secrets are persisted without returning secret v
   assert.equal(JSON.stringify(saved).includes('top-secret-token'), false)
 })
 
+test('saving configuration remounts the gateway on the new listener without a DSH restart', async () => {
+  const values = new Map([['DSH_REMOTE_ADMIN_HASH', 'configured-hash']])
+  let persisted: Record<string, unknown> = {}
+  let reconciliations = 0
+  const targetPort = await freePort()
+  const ctx = new Context()
+  ;(ctx as unknown as { get(name: string): unknown }).get = (name: string) => name === 'credentials'
+    ? {
+        async resolve(ref: string) { const value = values.get(ref); return value ? { value } : undefined },
+        async describe(ref: string) { return { configured: values.has(ref), writable: true } },
+        async set(ref: string, value: string) { values.set(ref, value) },
+      }
+    : name === 'connection' ? { authenticatedUrl: (url: string) => `${url}?token=test` }
+    : name === 'configEditor'
+      ? {
+          entries: () => [{ options: { id: 'dsh-remote-access', name: '@dsh-community/dsh-remote-access' } }],
+          async edit(_entry: unknown, change: (current: Record<string, unknown>) => Record<string, unknown>) {
+            persisted = change(persisted)
+            reconciliations++
+          },
+        }
+      : undefined
+
+  const mount = (config: Record<string, unknown>) => {
+    const mounted = new Context()
+    ;(mounted as unknown as { get(name: string): unknown }).get = ctx.get.bind(ctx)
+    return new RemoteAccessService(mounted, assertSafeConfig(config))
+  }
+  const common = { enabled: true, target: { host: '127.0.0.1', port: targetPort, protocol: 'http' }, adminPasswordSecretRef: 'DSH_REMOTE_ADMIN_HASH' }
+  const before = mount({ ...common, listenPort: await freePort() })
+  await before.start()
+  assert.equal((await before.status() as { running: boolean }).running, true)
+
+  const nextPort = await freePort()
+  assert.deepEqual(await before.saveConfig({ config: { enabled: true, listenPort: nextPort, target: { host: '127.0.0.1', port: targetPort, protocol: 'http' }, adminPasswordSecretRef: 'DSH_REMOTE_ADMIN_HASH' } }), { saved: true, secretsUpdated: 0 })
+  assert.equal(reconciliations, 1)
+  assert.equal(persisted.listenPort, nextPort)
+  // Loader remounts the plugin for the new configuration; the released port must be free again.
+  await before.stop()
+
+  // Loader remounts the plugin from the persisted configuration, so the new listener
+  // becomes active without restarting DSH, and the released port is immediately reusable.
+  const after = mount(persisted)
+  await after.start()
+  try {
+    const status = await after.status() as { running: boolean, configured: { listenPort: number } }
+    assert.equal(status.running, true)
+    assert.equal(status.configured.listenPort, nextPort)
+    const health = await fetch(`http://127.0.0.1:${nextPort}/_dsh_remote/health`)
+    assert.equal(health.status, 200)
+    assert.deepEqual(await health.json(), { status: 'ok' })
+  } finally {
+    await after.stop()
+  }
+  const released = await new Promise<number>((resolve, reject) => {
+    const probe = createServer()
+    probe.once('error', reject)
+    probe.listen(nextPort, '127.0.0.1', () => probe.close((error) => error ? reject(error) : resolve(nextPort)))
+  })
+  assert.equal(released, nextPort)
+})
+
 test('full configuration rejects invalid public tunnel settings before persistence', async () => {
   const ctx = new Context()
   ;(ctx as unknown as { get(name: string): unknown }).get = (name: string) => name === 'credentials' ? { resolve: async () => ({ value: 'hash' }), describe: async () => ({ configured: true, writable: true }), set: async () => {} } : undefined
