@@ -60,15 +60,17 @@ export class RemoteAccessService extends TypertRemoteService {
   }
 
   async start(): Promise<void> {
+    if (this.gateway) throw new Error('Remote gateway is already running.')
     const passwordHash = await this.loadPasswordHash()
-    this.gateway = new RemoteGateway(this.config, passwordHash)
-    await this.gateway.start()
+    const gateway = new RemoteGateway(this.config, passwordHash)
     try {
+      await gateway.start()
+      this.gateway = gateway
       this.tunnel = await this.createTunnel()
       if (this.tunnel && this.config.frp?.startWithDsh) await this.tunnel.start()
     } catch (error) {
-      await this.gateway.stop()
-      this.gateway = undefined
+      try { await this.stop() } catch { /* Preserve the startup failure. */ }
+      try { await gateway.stop() } catch { /* Preserve the startup failure. */ }
       throw error
     }
   }
@@ -76,10 +78,9 @@ export class RemoteAccessService extends TypertRemoteService {
   async stop(): Promise<void> {
     const tunnel = this.tunnel
     this.tunnel = undefined
-    await tunnel?.stop()
     const gateway = this.gateway
     this.gateway = undefined
-    await gateway?.stop()
+    try { await tunnel?.stop() } finally { await gateway?.stop() }
   }
 
   @Remote('status')

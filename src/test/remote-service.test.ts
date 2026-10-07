@@ -1,9 +1,45 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { Context } from '@deepseek-ai/cordis'
+import { createServer } from 'node:http'
+import { once } from 'node:events'
 import { RemoteAccessService } from '../remote-service.js'
 import { assertSafeConfig } from '../config.js'
 import { verifyPassword } from '../security/password.js'
+
+async function freePort(): Promise<number> {
+  const probe = createServer()
+  probe.listen(0, '127.0.0.1')
+  await once(probe, 'listening')
+  const address = probe.address()
+  if (!address || typeof address === 'string') throw new Error('Expected bound port')
+  await new Promise<void>((resolve) => probe.close(() => resolve()))
+  return address.port
+}
+
+test('gateway lifecycle survives a bind failure and releases the listener on stop', async () => {
+  const port = await freePort()
+  const config = assertSafeConfig({ enabled: true, listenPort: port, adminPasswordSecretRef: 'DSH_REMOTE_ADMIN_HASH' })
+  const ownerCtx = new Context()
+  const contenderCtx = new Context()
+  for (const ctx of [ownerCtx, contenderCtx]) {
+    ;(ctx as unknown as { get(name: string): unknown }).get = (name: string) => name === 'credentials' ? { resolve: async () => undefined } : undefined
+  }
+  const owner = new RemoteAccessService(ownerCtx, config)
+  const contender = new RemoteAccessService(contenderCtx, config)
+  await owner.start()
+  try {
+    await assert.rejects(() => contender.start(), /EADDRINUSE/)
+    assert.equal((await contender.status() as { running: boolean }).running, false)
+  } finally {
+    await contender.stop()
+    await owner.stop()
+  }
+  await contender.start()
+  assert.equal((await contender.status() as { running: boolean }).running, true)
+  await contender.stop()
+  await contender.stop()
+})
 
 test('initial administrator password can be stored while gateway is stopped', async () => {
   const values = new Map<string, string>()

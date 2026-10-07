@@ -9,9 +9,8 @@ export const inject = ['configEditor', 'credentials', 'typertGateway'];
 export async function apply(ctx, rawConfig) {
     const config = assertSafeConfig(rawConfig);
     const service = new RemoteAccessService(ctx, config);
-    if (config.enabled) {
+    ctx.effect(() => () => service.stop());
+    if (config.enabled)
         await service.start();
-        ctx.effect(() => () => service.stop());
-    }
 }
 //# sourceMappingURL=index.js.map
