@@ -2,7 +2,7 @@ import { hashPassword, verifyPassword } from './password.js';
 import { SlidingWindowRateLimiter } from './rate-limit.js';
 import { parseCookies, remoteClientIp } from './request-policy.js';
 import { SessionStore } from './session-store.js';
-const COOKIE_NAME = '__Host-dsh_remote_session';
+const COOKIE_NAME = 'dsh_remote_session';
 export class AuthService {
     options;
     passwordHash;

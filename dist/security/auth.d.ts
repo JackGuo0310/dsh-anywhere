@@ -35,5 +35,5 @@ export declare class AuthService {
     revokeAll(): void;
     passwordRecord(): string | undefined;
 }
-export declare const sessionCookieName = "__Host-dsh_remote_session";
+export declare const sessionCookieName = "dsh_remote_session";
 //# sourceMappingURL=auth.d.ts.map

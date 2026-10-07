@@ -11,7 +11,7 @@ export interface AuthOptions {
   trustedProxies: string[]
 }
 
-const COOKIE_NAME = '__Host-dsh_remote_session'
+const COOKIE_NAME = 'dsh_remote_session'
 
 export class AuthService {
   private passwordHash: string | undefined

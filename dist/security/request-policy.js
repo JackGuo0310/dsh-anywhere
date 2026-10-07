@@ -83,13 +83,15 @@ export function effectiveAuthority(req, trustedProxies) {
     const candidate = typeof forwarded === 'string' ? forwarded.split(',')[0].trim() : req.headers.host;
     return candidate ? canonicalAuthority(candidate) : undefined;
 }
-export function websocketOriginAllowed(req, allowedAuthorities, trustedProxies) {
+export function websocketOriginAllowed(req, allowedAuthorities, trustedProxies, publicBaseUrl) {
     const origin = req.headers.origin;
     if (!origin || typeof origin !== 'string')
         return false;
     try {
         const parsed = new URL(origin);
         const authority = effectiveAuthority(req, trustedProxies);
+        if (publicBaseUrl)
+            return parsed.origin === new URL(publicBaseUrl).origin && parsed.origin === origin && authority === parsed.host.toLowerCase();
         return (parsed.protocol === 'http:' || parsed.protocol === 'https:') && parsed.origin === origin && !!authority
             && allowedAuthorities.includes(parsed.host.toLowerCase()) && parsed.host.toLowerCase() === authority;
     }
@@ -97,11 +99,33 @@ export function websocketOriginAllowed(req, allowedAuthorities, trustedProxies) 
         return false;
     }
 }
-export function originAllowed(req, allowedAuthorities, trustedProxies) {
+export function originAllowed(req, allowedAuthorities, trustedProxies, publicBaseUrl) {
     const method = req.method?.toUpperCase() ?? 'GET';
     if (['GET', 'HEAD', 'OPTIONS'].includes(method))
         return true;
-    return websocketOriginAllowed(req, allowedAuthorities, trustedProxies);
+    return websocketOriginAllowed(req, allowedAuthorities, trustedProxies, publicBaseUrl);
+}
+export function proxyWriteAllowed(req, allowedAuthorities, trustedProxies, publicBaseUrl) {
+    const method = req.method?.toUpperCase() ?? 'GET';
+    if (['GET', 'HEAD', 'OPTIONS'].includes(method))
+        return true;
+    const fetchSite = req.headers['sec-fetch-site'];
+    if (fetchSite !== undefined && fetchSite !== 'same-origin' && fetchSite !== 'none')
+        return false;
+    if (req.headers.origin !== undefined)
+        return websocketOriginAllowed(req, allowedAuthorities, trustedProxies, publicBaseUrl);
+    if (fetchSite === 'same-origin')
+        return true;
+    const referer = req.headers.referer;
+    if (typeof referer !== 'string')
+        return false;
+    try {
+        const parsed = new URL(referer);
+        return websocketOriginAllowed({ ...req, headers: { ...req.headers, origin: parsed.origin } }, allowedAuthorities, trustedProxies, publicBaseUrl);
+    }
+    catch {
+        return false;
+    }
 }
 export function hostAllowed(req, allowedAuthorities, trustedProxies) {
     const authority = effectiveAuthority(req, trustedProxies);

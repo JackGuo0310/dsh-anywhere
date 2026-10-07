@@ -7,6 +7,8 @@ export declare class RemoteGateway {
     private readonly auth;
     private readonly allowedAuthorities;
     private readonly upstreamSessions;
+    private readonly pendingUpstreamSessions;
+    private authEpoch;
     constructor(config: RemoteAccessConfig, passwordHash?: string, authenticatedUrl?: (() => string) | undefined);
     start(): Promise<void>;
     stop(): Promise<void>;
