@@ -21,7 +21,9 @@ const loginScript = loginPage.match(/<script>([\s\S]*?)<\/script>/)?.[1];
 if (!loginScript)
     throw new Error('Gateway login script is missing.');
 const loginScriptHash = createHash('sha256').update(loginScript).digest('base64');
-const loginCsp = `default-src 'none'; script-src 'sha256-${loginScriptHash}'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'`;
+// `connect-src 'self'` keeps the login fetch working; without it the default-src
+// 'none' fallback blocks the request before it ever reaches the gateway.
+const loginCsp = `default-src 'none'; script-src 'sha256-${loginScriptHash}'; style-src 'unsafe-inline'; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'`;
 function htmlNavigation(req) {
     return req.method === 'GET' && typeof req.headers.accept === 'string' && req.headers.accept.split(',').some((type) => type.trim().startsWith('text/html'));
 }

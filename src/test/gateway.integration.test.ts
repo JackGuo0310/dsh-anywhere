@@ -251,7 +251,10 @@ test('browser navigation opens login while APIs remain private and favicon stays
     const loginPage = await fetch(`${base}${navigation.headers.get('location')}`)
     assert.equal(loginPage.status, 200)
     assert.match(loginPage.headers.get('content-type') ?? '', /text\/html/)
-    assert.match(loginPage.headers.get('content-security-policy') ?? '', /script-src 'sha256-/)
+    const csp = loginPage.headers.get('content-security-policy') ?? ''
+    assert.match(csp, /script-src 'sha256-/)
+    // The login form fetches over the same origin; default-src 'none' would block it otherwise.
+    assert.match(csp, /connect-src 'self'/)
     const body = await loginPage.text()
     assert.match(body, /登录远程访问网关/)
     assert.match(body, /_dsh_remote\/login/)
