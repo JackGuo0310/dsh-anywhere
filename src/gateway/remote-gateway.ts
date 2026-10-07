@@ -103,7 +103,14 @@ export class RemoteGateway {
   passwordRecord(): string | undefined { return this.auth.passwordRecord() }
   revokeAllSessions(): void { this.authEpoch++; this.auth.revokeAll(); this.upstreamSessions.clear(); this.pendingUpstreamSessions.clear(); this.sessionGenerations.clear() }
 
+  /** Drop cached upstream cookies whose gateway session is gone or expired. */
+  private pruneUpstreamSessions(): void {
+    if (this.upstreamSessions.size < 256) return
+    for (const id of this.upstreamSessions.keys()) if (!this.auth.sessions.get(id)) { this.upstreamSessions.delete(id); this.pendingUpstreamSessions.delete(id); this.sessionGenerations.delete(id) }
+  }
+
   private async privateCookie(sessionId: string): Promise<string | undefined> {
+    this.pruneUpstreamSessions()
     if (!this.auth.sessions.get(sessionId)) { this.upstreamSessions.delete(sessionId); return undefined }
     if (!this.authenticatedUrl) return undefined
     const existing = this.upstreamSessions.get(sessionId)
@@ -193,7 +200,11 @@ export class RemoteGateway {
     if (pathname === '/_dsh_remote/logout' && req.method === 'POST') {
       if (!originAllowed(req, this.allowedAuthorities, this.config.trustedProxyCidrs, this.config.publicBaseUrl) || !this.auth.requireCsrf(req)) return this.json(res, 403, { error: 'CSRF check failed.' })
       const session = this.auth.requireSession(req)
-      if (session) { this.sessionGenerations.set(session.id, (this.sessionGenerations.get(session.id) ?? 0) + 1); this.upstreamSessions.delete(session.id); this.pendingUpstreamSessions.delete(session.id) }
+      if (session) {
+        this.sessionGenerations.set(session.id, (this.sessionGenerations.get(session.id) ?? 0) + 1)
+        this.upstreamSessions.delete(session.id)
+        this.pendingUpstreamSessions.delete(session.id)
+      }
       this.auth.logout(req, res)
       res.writeHead(204)
       res.end()

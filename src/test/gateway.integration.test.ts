@@ -102,7 +102,15 @@ test('gateway authenticates then proxies HTTP and enforces CSRF logout', async (
 
 test('upstream response cannot override gateway security policy or redirect outside gateway', async () => {
   const upstream = createServer((req, res) => {
-    res.writeHead(302, { location: req.url === '/redirect-local' ? `http://127.0.0.1:${upstreamPort}/app` : 'https://attacker.example/capture', 'x-frame-options': 'ALLOWALL', 'access-control-allow-origin': '*', 'set-cookie': 'evil=1' })
+    const targets: Record<string, string> = {
+      '/redirect-local': `http://127.0.0.1:${upstreamPort}/app`,
+      '/redirect-relative': './app?x=1#frag',
+      '/redirect-rooted': '/app',
+      '/redirect-token': '/app?token=leaked',
+      '/redirect-scheme': '//attacker.example/capture',
+      '/redirect-protocol': 'javascript:alert(1)',
+    }
+    res.writeHead(302, { location: targets[req.url ?? ''] ?? 'https://attacker.example/capture', 'x-frame-options': 'ALLOWALL', 'access-control-allow-origin': '*', 'set-cookie': 'evil=1' })
     res.end()
   })
   const upstreamPort = await listen(upstream)
@@ -123,6 +131,16 @@ test('upstream response cannot override gateway security policy or redirect outs
     const external = await fetch(`${base}/redirect-external`, { headers: { cookie }, redirect: 'manual' })
     assert.equal(external.status, 502)
     assert.equal(external.headers.get('location'), null)
+    const relative = await fetch(`${base}/redirect-relative`, { headers: { cookie }, redirect: 'manual' })
+    assert.equal(relative.status, 302)
+    assert.equal(relative.headers.get('location'), '/app?x=1#frag')
+    const rooted = await fetch(`${base}/redirect-rooted`, { headers: { cookie }, redirect: 'manual' })
+    assert.equal(rooted.headers.get('location'), '/app')
+    for (const unsafe of ['/redirect-token', '/redirect-scheme', '/redirect-protocol']) {
+      const response = await fetch(`${base}${unsafe}`, { headers: { cookie }, redirect: 'manual' })
+      assert.equal(response.status, 502, `${unsafe} must not reach the browser`)
+      assert.equal(response.headers.get('location'), null)
+    }
   } finally {
     await gateway.stop()
     await new Promise<void>((resolve) => upstream.close(() => resolve()))

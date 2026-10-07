@@ -17,6 +17,8 @@ export declare class RemoteGateway {
     changeAdminPassword(currentPassword: string, nextPassword: string): Promise<string>;
     passwordRecord(): string | undefined;
     revokeAllSessions(): void;
+    /** Drop cached upstream cookies whose gateway session is gone or expired. */
+    private pruneUpstreamSessions;
     private privateCookie;
     private writeSecurity;
     private json;

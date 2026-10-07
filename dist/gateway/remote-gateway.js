@@ -102,7 +102,19 @@ export class RemoteGateway {
     }
     passwordRecord() { return this.auth.passwordRecord(); }
     revokeAllSessions() { this.authEpoch++; this.auth.revokeAll(); this.upstreamSessions.clear(); this.pendingUpstreamSessions.clear(); this.sessionGenerations.clear(); }
+    /** Drop cached upstream cookies whose gateway session is gone or expired. */
+    pruneUpstreamSessions() {
+        if (this.upstreamSessions.size < 256)
+            return;
+        for (const id of this.upstreamSessions.keys())
+            if (!this.auth.sessions.get(id)) {
+                this.upstreamSessions.delete(id);
+                this.pendingUpstreamSessions.delete(id);
+                this.sessionGenerations.delete(id);
+            }
+    }
     async privateCookie(sessionId) {
+        this.pruneUpstreamSessions();
         if (!this.auth.sessions.get(sessionId)) {
             this.upstreamSessions.delete(sessionId);
             return undefined;

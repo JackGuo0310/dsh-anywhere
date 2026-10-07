@@ -38,24 +38,16 @@ export function proxyHttp(req, res, target, maxRequestBodyBytes, upstreamCookie)
         for (const header of hopByHop)
             delete responseHeaders[header];
         const location = responseHeaders.location;
-        if (typeof location === 'string' && !/^https?:\/\//i.test(location) && (!location.startsWith('/') || location.startsWith('//') || /%0[ad]/i.test(location)))
-            delete responseHeaders.location;
-        if (typeof location === 'string' && /^https?:\/\//i.test(location)) {
+        if (typeof location === 'string') {
+            // Keep upstream redirects inside the gateway: resolve them against the upstream
+            // origin and emit only a same-origin path, so the browser never leaves the gateway.
             try {
-                const url = new URL(location);
-                if (url.origin === new URL(`${target.protocol}://${target.host}:${target.port}`).origin && !url.searchParams.has('token'))
-                    responseHeaders.location = url.pathname + url.search + url.hash;
+                const upstreamOrigin = new URL(`${target.protocol}://${target.host}:${target.port}`).origin;
+                const resolved = new URL(location, `${upstreamOrigin}${req.url ?? '/'}`);
+                if (resolved.origin !== upstreamOrigin || resolved.searchParams.has('token') || /[\u0000-\u001f\u007f]|%0[ad]/i.test(resolved.pathname))
+                    delete responseHeaders.location;
                 else
-                    delete responseHeaders.location;
-            }
-            catch {
-                delete responseHeaders.location;
-            }
-        }
-        if (typeof responseHeaders.location === 'string') {
-            try {
-                if (new URL(responseHeaders.location, 'http://gateway.invalid').searchParams.has('token'))
-                    delete responseHeaders.location;
+                    responseHeaders.location = resolved.pathname + resolved.search + resolved.hash;
             }
             catch {
                 delete responseHeaders.location;
