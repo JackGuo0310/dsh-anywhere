@@ -32,8 +32,7 @@ var __esDecorate = (this && this.__esDecorate) || function (ctor, descriptorIn, 
     if (target) Object.defineProperty(target, contextIn.name, descriptor);
     done = true;
 };
-import { networkInterfaces } from 'node:os';
-import { assertSafeConfig } from './config.js';
+import { assertSafeConfig, resolveBindAddresses } from './config.js';
 import { FrpTunnelProvider } from './tunnel/frp.js';
 import { CustomCommandTunnelProvider } from './tunnel/custom-command.js';
 import { reconcileGateway, releaseGateway, shutdownGateway } from './gateway/host.js';
@@ -54,16 +53,6 @@ function objectOf(value) {
 }
 function optionalSecret(value) {
     return typeof value === 'string' && value.length ? value : undefined;
-}
-function lanAddresses() {
-    const addresses = [];
-    for (const entries of Object.values(networkInterfaces())) {
-        for (const entry of entries ?? []) {
-            if (!entry.internal && entry.family === 'IPv4')
-                addresses.push(entry.address);
-        }
-    }
-    return [...new Set(addresses)];
 }
 /** Host RPC surface. It never returns passwords, password hashes, tokens, or credential references. */
 let RemoteAccessService = (() => {
@@ -193,7 +182,10 @@ let RemoteAccessService = (() => {
             return result;
         }
         async discoverNetwork() {
-            return { lanIpv4: lanAddresses(), gatewayPort: this.config.listenPort };
+            // Report exactly what the LAN listener would bind, so the UI cannot drift from the gateway.
+            const lanIpv4 = resolveBindAddresses({ ...this.config, listeners: { local: false, lan: true, tailscale: false } })
+                .filter((address) => address !== '127.0.0.1');
+            return { lanIpv4, gatewayPort: this.config.listenPort };
         }
         async detectTailscale() {
             return detectTailscale();

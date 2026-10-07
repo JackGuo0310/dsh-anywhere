@@ -7,7 +7,7 @@ import { RemoteAccessService } from '../remote-service.js'
 import { hostedGateway, hostTiming, shutdownGateway } from '../gateway/host.js'
 
 const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
-import { assertSafeConfig } from '../config.js'
+import { assertSafeConfig, isTailscaleAddress } from '../config.js'
 import { verifyPassword } from '../security/password.js'
 
 async function freePort(): Promise<number> {
@@ -123,6 +123,15 @@ test('a disposal with no re-apply stops the gateway after the grace period', asy
     hostTiming.releaseGraceMs = timing.releaseGraceMs
     await shutdownGateway()
   }
+})
+
+test('network discovery never lists a Tailscale address under LAN', async () => {
+  const ctx = new Context()
+  ;(ctx as unknown as { get(name: string): unknown }).get = () => undefined
+  const service = new RemoteAccessService(ctx, assertSafeConfig({ listenPort: 4173 }))
+  const { lanIpv4 } = await service.discoverNetwork() as { lanIpv4: string[] }
+  // Tailscale addresses belong to their own access mode and are bound separately.
+  assert.equal(lanIpv4.some((address) => isTailscaleAddress(address)), false)
 })
 
 test('initial administrator password can be stored while gateway is stopped', async () => {
