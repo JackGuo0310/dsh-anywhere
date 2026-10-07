@@ -8,8 +8,15 @@
 
 所有 DSH 页面与 API 路径都先经过**登录网关**；未登录的浏览器导航显示中文登录页，API 返回 401，`favicon.ico` 由网关直接响应。网关对 HTTP、SSE、WebSocket upgrade 和 API 统一执行会话认证与 Host 校验；写请求按浏览器 Origin/Fetch Metadata/Referer 判定同源，网关自己的退出操作另用 CSRF token。网关使用 DSH Connection 的启动令牌在本机**私下**交换上游认证 Cookie，不向浏览器转发令牌或上游 Cookie。原始 DSH Web 端口必须保持 loopback/防火墙隔离；插件启用时目标限定为本地 HTTP 监听器；浏览器仍可能直接访问同一主机的不同端口，Cookie 本身不受端口隔离。
 
-- **直连能力（IP + 端口 / Tailscale）**：局域网、受控网络或 Tailnet 用户直接访问认证网关的 IP 加端口。Tailscale 仅用于发现本机 Tailnet 地址；本插件不管理 Tailscale 登录、ACL 或 DNS。
-- **公网隧道能力（域名 + FRP）**：FRP 将部署者控制的 HTTPS 自定义域名转发到认证网关。插件生成/运行受管 `frpc` 配置；FRP 服务端、TLS、DNS 与防火墙由部署者控制。
+四种访问方式**互相独立**，各自启停、保存后即时生效，且**共用同一个端口号**——本机、局域网、Tailscale 是同一端口绑定到不同网卡地址，公网隧道不占本地端口：
+
+- **本机**：监听 `127.0.0.1`。
+- **局域网**：监听本机所有非 Tailscale 的 IPv4 网卡地址（列表由设置页的「检测局域网」给出）。
+- **Tailscale**：监听 `100.64.0.0/10` 段内的 Tailscale 地址；本插件不管理 Tailscale 登录、ACL 或 DNS。
+- **公网隧道（域名 + FRP）**：`frpc` 作为受管子进程启动，把部署者控制的 HTTPS 域名转发到本机的**网关**监听（不是 DSH 原始端口）。FRP 服务端、TLS、DNS 与防火墙由部署者控制。
+
+每种访问方式是一个**独立入口**：会话按入口隔离，从一个入口登录不会自动登录另一个入口；只有公网 HTTPS 入口的 cookie 带 `Secure`。所有入口共用同一套管理员密码与登录限速。
+
 - **扩展点**：`TunnelProvider` 接口允许实现 Cloudflare Tunnel 或其他受控命令适配器。
 
 ## 安全设计
@@ -30,11 +37,11 @@
 
 ## 界面配置
 
-所有部署配置都可在设置页完成，无需手工编辑 `cordis.patch.yml`：网关开关与监听、DSH 目标、仅本机/局域网/Tailscale/公网隧道模式、HTTPS 公网地址、可信代理、会话期限、请求体限制、FRP、自定义命令及凭据引用。FRP Token 与 STCP 密钥可直接在界面安全写入 DSH credentials，读取时只返回是否已配置，不会把密钥回显到浏览器。保存操作通过 DSH `configEditor` 校验、持久化并应用。
+所有部署配置都可在设置页完成，无需手工编辑 `cordis.patch.yml`：网关开关与共用端口、本机/局域网/Tailscale 三个独立监听、公网隧道开关、DSH 目标、HTTPS 公网地址、可信代理、会话期限、请求体限制、FRP、自定义命令及凭据引用。局域网与 Tailscale 的检测按钮就在各自选项旁。FRP Token 与 STCP 密钥可直接在界面安全写入 DSH credentials，读取时只返回是否已配置，不会把密钥回显到浏览器。保存操作通过 DSH `configEditor` 校验、持久化并应用。
 
 ## 版本兼容性
 
-当前 `v0.1.25` 锁定 DeepSeek Harness `0.2.1-alpha.1` 运行时：
+当前 `v0.2.0` 锁定 DeepSeek Harness `0.2.1-alpha.1` 运行时：
 
 - `@deepseek-ai/cordis`：`~4.0.5-alpha.1`
 - `@deepseek-ai/dsh-credentials`：`0.2.1-alpha.1`
@@ -44,17 +51,17 @@
 
 ## 安装（Git tag）
 
-`v0.1.25` 尚未发布到 npm。可在目标机器使用 Git tag 安装：
+`v0.2.0` 尚未发布到 npm。可在目标机器使用 Git tag 安装：
 
 ```powershell
 # dsh 会将 bundle 安装到指定 profile；按你的实际 profile 名替换 web。
-dsh plugin --profile web add https://github.com/JackGuo0310/dsh-anywhere.git#v0.1.25
+dsh plugin --profile web add https://github.com/JackGuo0310/dsh-anywhere.git#v0.2.0
 ```
 
 也可先克隆该 tag 并从本地目录安装：
 
 ```powershell
-git clone --branch v0.1.25 --depth 1 https://github.com/JackGuo0310/dsh-anywhere.git
+git clone --branch v0.2.0 --depth 1 https://github.com/JackGuo0310/dsh-anywhere.git
 dsh plugin --profile web add .\dsh-anywhere
 ```
 
@@ -64,11 +71,12 @@ dsh plugin --profile web add .\dsh-anywhere
 
 1. 首次使用先设置至少 10 个字符的管理员密码。
 2. 保持 DSH 目标为 `127.0.0.1`，填入实际原始端口（例如 `3080`）。
-3. 可达范围由监听地址决定，模式只是标签：
-   - `127.0.0.1`：仅本机，浏览器访问 `http://127.0.0.1:4173`
-   - `0.0.0.0`：本机、局域网与 Tailscale 全部可连；局域网用 `http://<LAN-IP>:4173`，Tailscale 用检测到的 `100.x.y.z:4173` 或 MagicDNS
-4. FRP：访问方式选“公网隧道”，填写 `frpc`、frps、HTTPS 域名及 Token；密钥直接保存到 DSH credentials。
-6. 点击“保存并应用”：`configEditor` 持久化配置并等待 Loader 重新挂载插件；网关配置与开关即时生效，不要求重启 DSH。保存成功后界面重新读取状态。随后访问网关地址，输入管理员密码并进入 DSH。
+3. 按需勾选访问方式，它们可以同时启用、共用同一个端口：
+   - 本机：访问 `http://127.0.0.1:4173`
+   - 局域网：点「检测局域网」确认地址，其他设备访问 `http://<LAN-IP>:4173`
+   - Tailscale：点「检测 Tailscale」确认连通，访问 `http://100.x.y.z:4173`
+4. 公网隧道：勾选后填写 HTTPS 域名、`frpc` 路径与 frps 地址；密钥直接保存到 DSH credentials。隧道转发到本机监听，因此本机访问方式必须保持启用。
+5. 点击“保存并应用”：`configEditor` 持久化配置并等待 Loader 重新挂载插件；各访问方式即时生效，不要求重启 DSH。保存成功后界面重新读取状态。随后访问任一入口，输入管理员密码并进入 DSH。
 
 ## FRP 先决条件
 
@@ -89,9 +97,9 @@ npm test
 
 ## 平台验证
 
-- **Windows**：在 Windows Node 环境执行了 `npm run check`、`npm run build` 与 `npm test`，40/40 测试通过。
+- **Windows**：在 Windows Node 环境执行了 `npm run check`、`npm run build` 与 `npm test`，46/46 测试通过。
 - **Linux**：代码只依赖 Node 22 的跨平台模块；`spawn(..., { windowsHide: true })` 在 Linux 被 Node 忽略。尚未在真实 Linux host 上运行集成测试，发布前应执行同一命令并测试 `frpc` 生命周期。
-- 用户已在真实 `web` profile 中验证直连监听：`0.0.0.0` 通配下本机 `127.0.0.1:4173` 与 Tailscale `100.x.y.z:4173` 均可打开登录页；登录流程、favicon 静默、保存配置热应用均实测通过（`v0.1.23`）。局域网其他设备与 FRP 公网隧道模式尚未在真实网络验证。
+- 用户已在真实 `web` profile 中验证单入口直连（`v0.1.23`）：本机 `127.0.0.1:4173` 与 Tailscale `100.x.y.z:4173` 均可打开登录页，登录流程、favicon 静默、保存配置热应用实测通过。多入口并存（`v0.2.0` 起）与 FRP 公网隧道尚未在真实网络验证，需要你自己的 `frps` 与域名。`v0.1.x` 的 `listenHost`/`mode` 配置会自动迁移为新的 `listeners`/`tunnelEnabled`。
 
 ## 已知限制
 

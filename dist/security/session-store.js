@@ -2,15 +2,20 @@ import { createHash, randomBytes } from 'node:crypto';
 export class SessionStore {
     sessions = new Map();
     maxSessions = 1024;
-    create(ttlMinutes, now = Date.now()) {
+    create(ttlMinutes, authority, now = Date.now()) {
         this.clearExpired(now);
         while (this.sessions.size >= this.maxSessions)
             this.sessions.delete(this.sessions.keys().next().value);
-        const session = { id: randomBytes(32).toString('base64url'), csrfToken: randomBytes(24).toString('base64url'), expiresAt: now + ttlMinutes * 60_000 };
+        const session = { id: randomBytes(32).toString('base64url'), csrfToken: randomBytes(24).toString('base64url'), expiresAt: now + ttlMinutes * 60_000, authority };
         this.sessions.set(this.hash(session.id), session);
         return session;
     }
-    get(id, now = Date.now()) {
+    get(id, authority, now = Date.now()) {
+        const session = this.find(id, now);
+        return session?.authority === authority ? session : undefined;
+    }
+    /** Session lookup without the entry check, for internal bookkeeping only. */
+    find(id, now = Date.now()) {
         if (!id)
             return undefined;
         const session = this.sessions.get(this.hash(id));

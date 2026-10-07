@@ -5,8 +5,13 @@ import { join } from 'node:path'
 import type { RemoteAccessConfig } from '../config.js'
 import type { TunnelProvider, TunnelStatus } from './types.js'
 
-export interface FrpRuntimeConfig extends Required<Pick<RemoteAccessConfig, 'target'>> {
+export interface FrpRuntimeConfig {
   frp: NonNullable<RemoteAccessConfig['frp']>
+  /**
+   * The gateway's own listener, never the raw DSH port. Forwarding straight to DSH
+   * would publish the unauthenticated upstream and bypass the login gateway entirely.
+   */
+  gatewayTarget: { host: string, port: number }
   token?: string
   stcpSecret?: string
 }
@@ -24,8 +29,8 @@ export function generateFrpcToml(config: FrpRuntimeConfig): string {
     `transport.tls.enable = ${frp.tlsEnabled ? 'true' : 'false'}`,
     auth.trimEnd(), '', '[[proxies]]', 'name = "dsh-remote"',
     `type = ${tomlString(frp.transport)}`,
-    `localIP = ${tomlString(config.target.host)}`,
-    `localPort = ${config.target.port}`,
+    `localIP = ${tomlString(config.gatewayTarget.host)}`,
+    `localPort = ${config.gatewayTarget.port}`,
   ]
   if (frp.transport === 'http' || frp.transport === 'https') lines.push(`customDomains = [${tomlString(frp.customDomain!)}]`)
   if (frp.transport === 'stcp') lines.push(`secretKey = ${tomlString(config.stcpSecret!)}`)

@@ -2,8 +2,8 @@ import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import { URL } from 'node:url'
-import { isWildcardListenHost, type RemoteAccessConfig } from '../config.js'
-import { AuthService } from '../security/auth.js'
+import { resolveBindAddresses, type RemoteAccessConfig } from '../config.js'
+import { AuthService, normalizeAuthority } from '../security/auth.js'
 import { effectiveAuthority, hostAllowed, originAllowed, proxyWriteAllowed, websocketOriginAllowed } from '../security/request-policy.js'
 import { loginPage } from './login-page.js'
 import { proxyHttp, bridgeWebSocket } from './proxy.js'
@@ -34,65 +34,80 @@ function htmlNavigation(req: IncomingMessage): boolean {
   return req.method === 'GET' && typeof req.headers.accept === 'string' && req.headers.accept.split(',').some((type) => type.trim().startsWith('text/html'))
 }
 
+/** A bound address answers under its literal form and, for loopback, under `localhost`. */
+function authorityAliases(address: string, port: number): string[] {
+  const authority = `${address.includes(':') ? `[${address}]` : address}:${port}`.toLowerCase()
+  return address === '127.0.0.1' ? [authority, `localhost:${port}`] : [authority]
+}
+
 export class RemoteGateway {
-  private server: Server | undefined
+  private readonly servers: Server[] = []
   private readonly sockets = new Set<import('node:net').Socket>()
   private readonly auth: AuthService
-  private readonly allowedAuthorities: string[]
-  private readonly wildcardListen: boolean
+  private allowedAuthorities: string[] = []
+  private publicAuthority: string | undefined
   private readonly upstreamSessions = new Map<string, string>()
   private readonly pendingUpstreamSessions = new Map<string, Promise<string>>()
   private readonly sessionGenerations = new Map<string, number>()
   private authEpoch = 0
 
   constructor(private readonly config: RemoteAccessConfig, passwordHash?: string, private readonly authenticatedUrl?: () => string) {
-    const publicAuthority = config.publicBaseUrl ? new URL(config.publicBaseUrl).host.toLowerCase() : undefined
-    this.wildcardListen = !publicAuthority && isWildcardListenHost(config.listenHost)
-    this.allowedAuthorities = [...new Set([`${config.listenHost}:${config.listenPort}`.toLowerCase(), publicAuthority].filter(Boolean) as string[])]
     this.auth = new AuthService({
       passwordHash,
       sessionTtlMinutes: config.sessionTtlMinutes,
-      secureCookie: config.mode === 'tunnel',
       trustedProxies: config.trustedProxyCidrs
     })
   }
 
   async start(): Promise<void> {
-    if (this.server) return
-    this.server = createServer((req, res) => this.handle(req, res))
-    this.server.on('connection', (socket) => {
-      this.sockets.add(socket)
-      socket.once('close', () => this.sockets.delete(socket))
-    })
-    this.server.on('upgrade', (req, socket, head) => this.handleUpgrade(req, socket, head))
-    const server = this.server
+    if (this.servers.length) return
+    const addresses = resolveBindAddresses(this.config)
+    if (!addresses.length) throw new Error('No listener address is available for the enabled access modes.')
+    this.publicAuthority = this.config.tunnelEnabled && this.config.publicBaseUrl ? new URL(this.config.publicBaseUrl).host.toLowerCase() : undefined
+    // Every enabled mode shares one port, so each enabled address is its own socket and
+    // the firewall still only ever needs a single port number.
+    this.allowedAuthorities = [...new Set([...addresses.flatMap((address) => authorityAliases(address, this.config.listenPort)), this.publicAuthority].filter(Boolean) as string[])]
     try {
-      await new Promise<void>((resolve, reject) => {
-        server.once('error', reject)
-        server.listen(this.config.listenPort, this.config.listenHost, () => {
-          server.off('error', reject)
-          resolve()
-        })
-      })
+      for (const address of addresses) await this.listen(address)
     } catch (error) {
-      server.removeAllListeners()
-      this.server = undefined
+      await this.stop()
       throw error
     }
   }
 
+  private listen(address: string): Promise<void> {
+    const server = createServer((req, res) => this.handle(req, res))
+    server.on('upgrade', (req, socket, head) => this.handleUpgrade(req, socket, head))
+    return new Promise<void>((resolve, reject) => {
+      // Register only after a successful bind, so a failed attempt never leaves a
+      // never-listening server behind for stop() to choke on.
+      const onError = (error: Error) => { server.removeListener('listening', onListening); server.close(); reject(error) }
+      const onListening = () => {
+        server.off('error', onError)
+        this.servers.push(server)
+        server.on('connection', (socket) => {
+          this.sockets.add(socket)
+          socket.once('close', () => this.sockets.delete(socket))
+        })
+        resolve()
+      }
+      server.once('error', onError)
+      server.once('listening', onListening)
+      server.listen(this.config.listenPort, address)
+    })
+  }
+
   async stop(): Promise<void> {
-    const server = this.server
-    this.server = undefined
+    const servers = this.servers.splice(0, this.servers.length)
     this.authEpoch++
     this.upstreamSessions.clear()
     this.pendingUpstreamSessions.clear()
     this.sessionGenerations.clear()
     this.auth.revokeAll()
-    if (!server) return
-    server.closeAllConnections()
+    if (!servers.length) return
     for (const socket of this.sockets) socket.destroy()
-    await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()))
+    for (const server of servers) server.closeAllConnections()
+    await Promise.all(servers.map((server) => new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()))))
   }
 
   async bootstrapAdmin(password: string): Promise<string> {
@@ -109,26 +124,28 @@ export class RemoteGateway {
   }
   passwordRecord(): string | undefined { return this.auth.passwordRecord() }
   revokeAllSessions(): void { this.authEpoch++; this.auth.revokeAll(); this.upstreamSessions.clear(); this.pendingUpstreamSessions.clear(); this.sessionGenerations.clear() }
+  /** Addresses this gateway actually bound, for the settings page. */
+  boundAuthorities(): string[] { return [...this.allowedAuthorities] }
 
   /** Drop cached upstream cookies whose gateway session is gone or expired. */
   private pruneUpstreamSessions(): void {
     if (this.upstreamSessions.size < 256) return
-    for (const id of this.upstreamSessions.keys()) if (!this.auth.sessions.get(id)) { this.upstreamSessions.delete(id); this.pendingUpstreamSessions.delete(id); this.sessionGenerations.delete(id) }
+    for (const id of this.upstreamSessions.keys()) if (!this.auth.sessions.find(id)) { this.upstreamSessions.delete(id); this.pendingUpstreamSessions.delete(id); this.sessionGenerations.delete(id) }
   }
 
   private async privateCookie(sessionId: string): Promise<string | undefined> {
     this.pruneUpstreamSessions()
-    if (!this.auth.sessions.get(sessionId)) { this.upstreamSessions.delete(sessionId); return undefined }
+    if (!this.auth.sessions.find(sessionId)) { this.upstreamSessions.delete(sessionId); return undefined }
     if (!this.authenticatedUrl) return undefined
     const existing = this.upstreamSessions.get(sessionId)
     if (existing) return existing
     const pending = this.pendingUpstreamSessions.get(sessionId)
     if (pending) return pending
     const epoch = this.authEpoch
-    const session = this.auth.sessions.get(sessionId)
+    const session = this.auth.sessions.find(sessionId)
     const generation = this.sessionGenerations.get(sessionId) ?? 0
     const exchange = upstreamCookie(this.config.target, this.authenticatedUrl).then((cookie) => {
-      if (epoch !== this.authEpoch || (this.sessionGenerations.get(sessionId) ?? 0) !== generation || this.auth.sessions.get(sessionId) !== session) return ''
+      if (epoch !== this.authEpoch || (this.sessionGenerations.get(sessionId) ?? 0) !== generation || this.auth.sessions.find(sessionId) !== session) return ''
       this.upstreamSessions.set(sessionId, cookie)
       return cookie
     })
@@ -184,7 +201,9 @@ export class RemoteGateway {
 
   private async handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
     this.writeSecurity(res, this.trustworthyOrigin(req))
-    if (!hostAllowed(req, this.allowedAuthorities, this.config.trustedProxyCidrs, this.wildcardListen)) return this.json(res, 421, { error: 'Unrecognized Host header.' })
+    if (!hostAllowed(req, this.allowedAuthorities, this.config.trustedProxyCidrs)) return this.json(res, 421, { error: 'Unrecognized Host header.' })
+    // Each access mode is its own entry: the public HTTPS entry alone gets a Secure cookie.
+    const entry = this.publicAuthority !== undefined && normalizeAuthority(effectiveAuthority(req, this.config.trustedProxyCidrs) ?? '') === this.publicAuthority
     const url = new URL(req.url ?? '/', 'http://gateway.invalid')
     const pathname = url.pathname
     if (url.searchParams.has('token')) return this.json(res, 400, { error: 'Launch tokens are not accepted by this gateway.' })
@@ -211,12 +230,12 @@ export class RemoteGateway {
       return this.showLogin(res)
     }
     if (pathname === '/_dsh_remote/login' && req.method === 'POST') {
-      if (!originAllowed(req, this.allowedAuthorities, this.config.trustedProxyCidrs, this.config.publicBaseUrl, this.wildcardListen)) return this.json(res, 403, { error: 'Origin check failed.' })
+      if (!originAllowed(req, this.allowedAuthorities, this.config.trustedProxyCidrs, this.config.publicBaseUrl)) return this.json(res, 403, { error: 'Origin check failed.' })
       try {
         const body = await this.readJson(req)
         const login = await this.auth.login(String(body.username ?? ''), String(body.password ?? ''), req)
         if (!login.ok) return this.json(res, 429, { error: 'Invalid credentials or too many attempts.', retryAfterSeconds: login.retryAfterSeconds })
-        this.auth.setSessionCookie(res, login.session!.id)
+        this.auth.setSessionCookie(res, login.session!.id, entry)
         return this.json(res, 200, { csrfToken: login.session!.csrfToken })
       } catch (error) { return this.json(res, 400, { error: error instanceof Error ? error.message : 'Invalid request.' }) }
     }
@@ -225,14 +244,14 @@ export class RemoteGateway {
       return this.json(res, session ? 200 : 401, session ? { csrfToken: session.csrfToken } : { error: 'Login required.' })
     }
     if (pathname === '/_dsh_remote/logout' && req.method === 'POST') {
-      if (!originAllowed(req, this.allowedAuthorities, this.config.trustedProxyCidrs, this.config.publicBaseUrl, this.wildcardListen) || !this.auth.requireCsrf(req)) return this.json(res, 403, { error: 'CSRF check failed.' })
+      if (!originAllowed(req, this.allowedAuthorities, this.config.trustedProxyCidrs, this.config.publicBaseUrl) || !this.auth.requireCsrf(req)) return this.json(res, 403, { error: 'CSRF check failed.' })
       const session = this.auth.requireSession(req)
       if (session) {
         this.sessionGenerations.set(session.id, (this.sessionGenerations.get(session.id) ?? 0) + 1)
         this.upstreamSessions.delete(session.id)
         this.pendingUpstreamSessions.delete(session.id)
       }
-      this.auth.logout(req, res)
+      this.auth.logout(req, res, entry)
       res.writeHead(204)
       res.end()
       return
@@ -243,12 +262,12 @@ export class RemoteGateway {
       if (htmlNavigation(req)) return this.loginRedirect(res, req.url ?? '/')
       return this.json(res, 401, { error: 'Login required.' })
     }
-    if (!proxyWriteAllowed(req, this.allowedAuthorities, this.config.trustedProxyCidrs, this.config.publicBaseUrl, this.wildcardListen)) return this.json(res, 403, { error: 'Origin check failed.' })
+    if (!proxyWriteAllowed(req, this.allowedAuthorities, this.config.trustedProxyCidrs, this.config.publicBaseUrl)) return this.json(res, 403, { error: 'Origin check failed.' })
     const declaredLength = Number(req.headers['content-length'] ?? 0)
     if (Number.isFinite(declaredLength) && declaredLength > this.config.maxRequestBodyBytes) return this.json(res, 413, { error: 'Request body exceeds configured limit.' })
     try {
       const cookie = await this.privateCookie(session.id)
-      if (!this.auth.sessions.get(session.id)) return this.json(res, 401, { error: 'Session expired.' })
+      if (!this.auth.sessions.find(session.id)) return this.json(res, 401, { error: 'Session expired.' })
       if (this.authenticatedUrl && !cookie) return this.json(res, 401, { error: 'Session expired.' })
       proxyHttp(req, res, this.config.target, this.config.maxRequestBodyBytes, cookie)
     } catch { this.json(res, 502, { error: 'DSH upstream authentication failed.' }) }
@@ -256,7 +275,7 @@ export class RemoteGateway {
 
   private handleUpgrade(req: IncomingMessage, socket: import('node:stream').Duplex, head: Buffer): void {
     if (new URL(req.url ?? '/', 'http://gateway.invalid').searchParams.has('token')) { socket.destroy(); return }
-    if (!hostAllowed(req, this.allowedAuthorities, this.config.trustedProxyCidrs, this.wildcardListen) || !websocketOriginAllowed(req, this.allowedAuthorities, this.config.trustedProxyCidrs, this.config.publicBaseUrl, this.wildcardListen) || !this.auth.requireSession(req)) {
+    if (!hostAllowed(req, this.allowedAuthorities, this.config.trustedProxyCidrs) || !websocketOriginAllowed(req, this.allowedAuthorities, this.config.trustedProxyCidrs, this.config.publicBaseUrl) || !this.auth.requireSession(req)) {
       socket.write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n')
       socket.destroy()
       return
@@ -264,7 +283,7 @@ export class RemoteGateway {
     const session = this.auth.requireSession(req)!
     void this.privateCookie(session.id).then((cookie) => {
       if (socket.destroyed) return
-      if (!this.auth.sessions.get(session.id)) { socket.destroy(); return }
+      if (!this.auth.sessions.find(session.id)) { socket.destroy(); return }
       if (this.authenticatedUrl && !cookie) { socket.destroy(); return }
       bridgeWebSocket(socket, head, req, this.config.target, cookie)
     }).catch(() => {

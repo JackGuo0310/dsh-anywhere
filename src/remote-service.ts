@@ -71,7 +71,7 @@ export class RemoteAccessService extends TypertRemoteService {
       await gateway.start()
       this.gateway = gateway
       this.tunnel = await this.createTunnel()
-      if (this.tunnel && this.config.frp?.startWithDsh) await this.tunnel.start()
+      if (this.tunnel && (this.config.frp?.startWithDsh || this.config.customCommandEnabled)) await this.tunnel.start()
     } catch (error) {
       try { await this.stop() } catch { /* Preserve the startup failure. */ }
       try { await gateway.stop() } catch { /* Preserve the startup failure. */ }
@@ -93,6 +93,7 @@ export class RemoteAccessService extends TypertRemoteService {
     return {
       configured: redactConfig(this.config),
       running: !!this.gateway,
+      bound: this.gateway?.boundAuthorities() ?? [],
       administratorConfigured: !!passwordHash,
       tunnel: this.tunnel ? { id: this.tunnel.id, ...this.tunnel.status() } : undefined,
     }
@@ -192,7 +193,7 @@ export class RemoteAccessService extends TypertRemoteService {
       const stcpSecret = await this.resolveCredential(this.config.frp.stcpSecretRef)
       if (this.config.frp.authMethod === 'token' && !token) throw new Error('FRP token credential could not be resolved.')
       if (this.config.frp.transport === 'stcp' && !stcpSecret) throw new Error('STCP secret credential could not be resolved.')
-      return new FrpTunnelProvider({ target: this.config.target, frp: this.config.frp, token, stcpSecret })
+      return new FrpTunnelProvider({ gatewayTarget: { host: '127.0.0.1', port: this.config.listenPort }, frp: this.config.frp, token, stcpSecret })
     }
     if (this.config.customCommandEnabled && this.config.customCommand) {
       return new CustomCommandTunnelProvider(this.config.customCommand.command, this.config.customCommand.args, true)

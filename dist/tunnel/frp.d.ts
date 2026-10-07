@@ -1,7 +1,15 @@
 import type { RemoteAccessConfig } from '../config.js';
 import type { TunnelProvider, TunnelStatus } from './types.js';
-export interface FrpRuntimeConfig extends Required<Pick<RemoteAccessConfig, 'target'>> {
+export interface FrpRuntimeConfig {
     frp: NonNullable<RemoteAccessConfig['frp']>;
+    /**
+     * The gateway's own listener, never the raw DSH port. Forwarding straight to DSH
+     * would publish the unauthenticated upstream and bypass the login gateway entirely.
+     */
+    gatewayTarget: {
+        host: string;
+        port: number;
+    };
     token?: string;
     stcpSecret?: string;
 }

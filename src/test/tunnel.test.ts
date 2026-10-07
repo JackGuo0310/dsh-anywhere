@@ -4,19 +4,21 @@ import { generateFrpcToml } from '../tunnel/frp.js'
 import { formatAddress } from '../network/addresses.js'
 import { parseTailscaleStatus } from '../network/tailscale.js'
 
-test('FRP config emits an explicit loopback target', () => {
+test('FRP forwards to the gateway listener, never straight to DSH', () => {
   const toml = generateFrpcToml({
-    target: { host: '127.0.0.1', port: 4173, protocol: 'http' },
+    gatewayTarget: { host: '127.0.0.1', port: 4173 },
     token: 'not logged',
     frp: { executablePath: '/usr/local/bin/frpc', serverAddress: 'frp.example.test', serverPort: 7000, authMethod: 'token', tokenSecretRef: 'FRP_TOKEN', transport: 'https', customDomain: 'dsh.example.test', tlsEnabled: true, startWithDsh: false }
   })
   assert.match(toml, /localIP = "127\.0\.0\.1"/)
+  assert.match(toml, /localPort = 4173/)
+  assert.doesNotMatch(toml, /localPort = 3080/)
   assert.match(toml, /customDomains = \["dsh\.example\.test"\]/)
 })
 
 test('STCP uses a separate visitor secret', () => {
   const toml = generateFrpcToml({
-    target: { host: '127.0.0.1', port: 4173, protocol: 'http' },
+    gatewayTarget: { host: '127.0.0.1', port: 4173 },
     token: 'server-token',
     stcpSecret: 'visitor-secret',
     frp: { executablePath: '/usr/local/bin/frpc', serverAddress: 'frp.example.test', serverPort: 7000, authMethod: 'token', tokenSecretRef: 'FRP_TOKEN', stcpSecretRef: 'STCP_SECRET', transport: 'stcp', tlsEnabled: true, startWithDsh: false }

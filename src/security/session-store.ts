@@ -4,21 +4,29 @@ export interface Session {
   id: string
   csrfToken: string
   expiresAt: number
+  /** Authority (host:port) this session was created on. Other entries cannot reuse it. */
+  authority: string
 }
 
 export class SessionStore {
   private readonly sessions = new Map<string, Session>()
   private readonly maxSessions = 1024
 
-  create(ttlMinutes: number, now = Date.now()): Session {
+  create(ttlMinutes: number, authority: string, now = Date.now()): Session {
     this.clearExpired(now)
     while (this.sessions.size >= this.maxSessions) this.sessions.delete(this.sessions.keys().next().value!)
-    const session = { id: randomBytes(32).toString('base64url'), csrfToken: randomBytes(24).toString('base64url'), expiresAt: now + ttlMinutes * 60_000 }
+    const session = { id: randomBytes(32).toString('base64url'), csrfToken: randomBytes(24).toString('base64url'), expiresAt: now + ttlMinutes * 60_000, authority }
     this.sessions.set(this.hash(session.id), session)
     return session
   }
 
-  get(id: string | undefined, now = Date.now()): Session | undefined {
+  get(id: string | undefined, authority: string, now = Date.now()): Session | undefined {
+    const session = this.find(id, now)
+    return session?.authority === authority ? session : undefined
+  }
+
+  /** Session lookup without the entry check, for internal bookkeeping only. */
+  find(id: string | undefined, now = Date.now()): Session | undefined {
     if (!id) return undefined
     const session = this.sessions.get(this.hash(id))
     if (!session || session.expiresAt <= now) {

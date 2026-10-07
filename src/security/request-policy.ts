@@ -74,7 +74,7 @@ export function effectiveAuthority(req: IncomingMessage, trustedProxies: readonl
   return candidate ? canonicalAuthority(candidate) : undefined
 }
 
-export function websocketOriginAllowed(req: IncomingMessage, allowedAuthorities: readonly string[], trustedProxies: readonly string[], publicBaseUrl?: string, wildcardListen = false): boolean {
+export function websocketOriginAllowed(req: IncomingMessage, allowedAuthorities: readonly string[], trustedProxies: readonly string[], publicBaseUrl?: string): boolean {
   const origin = req.headers.origin
   if (!origin || typeof origin !== 'string') return false
   try {
@@ -84,53 +84,38 @@ export function websocketOriginAllowed(req: IncomingMessage, allowedAuthorities:
     if (publicBaseUrl) return parsed.origin === new URL(publicBaseUrl).origin && parsed.origin === origin && authority === parsed.host.toLowerCase() && allowedAuthorities.includes(authority)
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false
     if (parsed.origin !== origin || parsed.host.toLowerCase() !== authority) return false
-    return allowedAuthorities.includes(authority) || (wildcardListen && wildcardHostAccepted(authority))
+    return allowedAuthorities.includes(authority)
   } catch { return false }
 }
 
-export function originAllowed(req: IncomingMessage, allowedAuthorities: readonly string[], trustedProxies: readonly string[], publicBaseUrl?: string, wildcardListen = false): boolean {
+export function originAllowed(req: IncomingMessage, allowedAuthorities: readonly string[], trustedProxies: readonly string[], publicBaseUrl?: string): boolean {
   const method = req.method?.toUpperCase() ?? 'GET'
   if (['GET', 'HEAD', 'OPTIONS'].includes(method)) return true
-  return websocketOriginAllowed(req, allowedAuthorities, trustedProxies, publicBaseUrl, wildcardListen)
+  return websocketOriginAllowed(req, allowedAuthorities, trustedProxies, publicBaseUrl)
 }
 
-export function proxyWriteAllowed(req: IncomingMessage, allowedAuthorities: readonly string[], trustedProxies: readonly string[], publicBaseUrl?: string, wildcardListen = false): boolean {
+export function proxyWriteAllowed(req: IncomingMessage, allowedAuthorities: readonly string[], trustedProxies: readonly string[], publicBaseUrl?: string): boolean {
   const method = req.method?.toUpperCase() ?? 'GET'
   if (['GET', 'HEAD', 'OPTIONS'].includes(method)) return true
   const fetchSite = req.headers['sec-fetch-site']
   if (fetchSite !== undefined && fetchSite !== 'same-origin' && fetchSite !== 'none') return false
-  if (req.headers.origin !== undefined) return websocketOriginAllowed(req, allowedAuthorities, trustedProxies, publicBaseUrl, wildcardListen)
+  if (req.headers.origin !== undefined) return websocketOriginAllowed(req, allowedAuthorities, trustedProxies, publicBaseUrl)
   if (fetchSite === 'same-origin') {
     const authority = effectiveAuthority(req, trustedProxies)
-    if (!authority) return false
-    if (!allowedAuthorities.includes(authority) && !(wildcardListen && wildcardHostAccepted(authority))) return false
+    if (!authority || !allowedAuthorities.includes(authority)) return false
     return !publicBaseUrl || authority === new URL(publicBaseUrl).host.toLowerCase()
   }
   const referer = req.headers.referer
   if (typeof referer !== 'string') return false
   try {
     const parsed = new URL(referer)
-    return websocketOriginAllowed({ ...req, headers: { ...req.headers, origin: parsed.origin } } as IncomingMessage, allowedAuthorities, trustedProxies, publicBaseUrl, wildcardListen)
+    return websocketOriginAllowed({ ...req, headers: { ...req.headers, origin: parsed.origin } } as IncomingMessage, allowedAuthorities, trustedProxies, publicBaseUrl)
   } catch { return false }
 }
 
-/**
- * A wildcard listener answers on every local address, so browsers legitimately send
- * `127.0.0.1:port`, a LAN IP, or a Tailnet IP. Accept those IP literals and `localhost`,
- * but never an arbitrary external name, which keeps Host-header routing confusion closed.
- */
-export function wildcardHostAccepted(authority: string): boolean {
-  const separator = authority.lastIndexOf(':')
-  if (separator < 0) return authority === 'localhost'
-  const host = authority.slice(0, separator).replace(/^\[/, '').replace(/\]$/, '')
-  return host === 'localhost' || isIP(host) !== 0
-}
-
-export function hostAllowed(req: IncomingMessage, allowedAuthorities: readonly string[], trustedProxies: readonly string[], wildcardListen = false): boolean {
+export function hostAllowed(req: IncomingMessage, allowedAuthorities: readonly string[], trustedProxies: readonly string[]): boolean {
   const authority = effectiveAuthority(req, trustedProxies)
-  if (!authority) return false
-  if (allowedAuthorities.includes(authority)) return true
-  return wildcardListen && wildcardHostAccepted(authority)
+  return !!authority && allowedAuthorities.includes(authority)
 }
 
 export function remoteClientIp(req: IncomingMessage, trustedProxies: readonly string[]): string {

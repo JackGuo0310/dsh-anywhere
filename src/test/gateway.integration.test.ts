@@ -15,9 +15,9 @@ async function listen(server: ReturnType<typeof createServer>): Promise<number> 
   return address.port
 }
 
-function config(targetPort: number, listenPort: number, listenHost = '127.0.0.1'): RemoteAccessConfig {
+function config(targetPort: number, listenPort: number): RemoteAccessConfig {
   return {
-    version: 1, enabled: true, listenHost, listenPort, mode: 'direct',
+    version: 1, enabled: true, listenPort, listeners: { local: true, lan: false, tailscale: false }, tunnelEnabled: false,
     target: { host: '127.0.0.1', port: targetPort, protocol: 'http' }, publicBaseUrl: undefined,
     trustedProxyCidrs: [], sessionTtlMinutes: 60, maxRequestBodyBytes: 1_024_000,
     adminConfigured: true, adminPasswordSecretRef: 'DSH_REMOTE_ADMIN_HASH', frp: undefined,
@@ -319,32 +319,63 @@ test('gateway bridges authenticated WebSocket traffic', async () => {
   }
 })
 
-test('a wildcard listener serves local IP literals and still rejects foreign Host headers', async () => {
+test('the local listener answers its alias and rejects every other Host', async () => {
   const upstream = createServer((_req, res) => { res.writeHead(200, { 'content-type': 'text/html' }); res.end('<h1>Private DSH</h1>') })
   const upstreamPort = await listen(upstream)
   const probe = createServer()
   const gatewayPort = await listen(probe)
   await new Promise<void>((resolve) => probe.close(() => resolve()))
-  const gateway = new RemoteGateway(config(upstreamPort, gatewayPort, '0.0.0.0'), await hashPassword('correct horse battery staple'))
+  const gateway = new RemoteGateway(config(upstreamPort, gatewayPort), await hashPassword('correct horse battery staple'))
   await gateway.start()
   const base = `http://127.0.0.1:${gatewayPort}`
   try {
     assert.equal((await fetch(`${base}/_dsh_remote/health`)).status, 200)
     assert.equal(await requestWithHost(gatewayPort, { host: `localhost:${gatewayPort}` }), 200)
-    assert.equal(await requestWithHost(gatewayPort, { host: `192.168.1.5:${gatewayPort}` }), 200)
-    assert.equal(await requestWithHost(gatewayPort, { host: `100.101.102.103:${gatewayPort}` }), 200)
-    // COOP is only honoured on a trustworthy origin, so it must be omitted elsewhere.
+    // COOP is only honoured on a trustworthy origin, so the LAN alias must not carry it.
     assert.equal((await responseWithHost(gatewayPort, { host: `127.0.0.1:${gatewayPort}` })).headers['cross-origin-opener-policy'], 'same-origin')
-    assert.equal((await responseWithHost(gatewayPort, { host: `localhost:${gatewayPort}` })).headers['cross-origin-opener-policy'], 'same-origin')
-    assert.equal((await responseWithHost(gatewayPort, { host: `100.101.102.103:${gatewayPort}` })).headers['cross-origin-opener-policy'], undefined)
-    assert.equal((await responseWithHost(gatewayPort, { host: `192.168.1.5:${gatewayPort}` })).headers['cross-origin-opener-policy'], undefined)
+    assert.equal(await requestWithHost(gatewayPort, { host: `192.168.1.5:${gatewayPort}` }), 421)
+    assert.equal(await requestWithHost(gatewayPort, { host: `100.101.102.103:${gatewayPort}` }), 421)
     assert.equal(await requestWithHost(gatewayPort, { host: `evil.example:${gatewayPort}` }), 421)
-    assert.equal(await requestWithHost(gatewayPort, { host: `127.0.0.1:${gatewayPort}` }), 200)
     const navigation = await fetch(`${base}/`, { headers: { accept: 'text/html' }, redirect: 'manual' })
     assert.equal(navigation.status, 303)
     const { cookie } = await login(base)
     assert.match(await (await fetch(`${base}/`, { headers: { cookie, accept: 'text/html' } })).text(), /Private DSH/)
-    assert.equal(await requestWithHost(gatewayPort, { host: `evil.example:${gatewayPort}`, cookie }, 'GET'), 421)
+    assert.equal(await requestWithHost(gatewayPort, { host: `evil.example:${gatewayPort}`, cookie }), 421)
+  } finally {
+    await gateway.stop()
+    await new Promise<void>((resolve) => upstream.close(() => resolve()))
+  }
+})
+
+test('a session from the public entry cannot authenticate the direct entry', async () => {
+  const upstream = createServer((_req, res) => { res.writeHead(200, { 'content-type': 'text/html' }); res.end('<h1>Private DSH</h1>') })
+  const upstreamPort = await listen(upstream)
+  const probe = createServer()
+  const gatewayPort = await listen(probe)
+  await new Promise<void>((resolve) => probe.close(() => resolve()))
+  const configWithTunnel = {
+    ...config(upstreamPort, gatewayPort),
+    tunnelEnabled: true,
+    publicBaseUrl: 'https://dsh.example.com',
+    trustedProxyCidrs: ['127.0.0.1'],
+  }
+  const gateway = new RemoteGateway(configWithTunnel, await hashPassword('correct horse battery staple'))
+  await gateway.start()
+  try {
+    const forwarded = (host: string) => ({ host: '127.0.0.1', 'x-forwarded-host': host })
+    const publicLogin = await fetch(`http://127.0.0.1:${gatewayPort}/_dsh_remote/login`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', origin: 'https://dsh.example.com', ...forwarded('dsh.example.com') },
+      body: JSON.stringify({ username: 'admin', password: 'correct horse battery staple' }),
+    })
+    assert.equal(publicLogin.status, 200)
+    // The public HTTPS entry alone marks its cookie Secure.
+    assert.match(publicLogin.headers.get('set-cookie') ?? '', /Secure/)
+    const cookie = publicLogin.headers.get('set-cookie')!.split(';')[0]
+    assert.equal((await fetch(`http://127.0.0.1:${gatewayPort}/_dsh_remote/session`, { headers: { cookie, ...forwarded('dsh.example.com') } })).status, 200)
+    // The same cookie must not speak for the loopback entry.
+    assert.equal((await fetch(`http://127.0.0.1:${gatewayPort}/_dsh_remote/session`, { headers: { cookie, ...forwarded(`127.0.0.1:${gatewayPort}`) } })).status, 401)
+    assert.equal(await requestWithHost(gatewayPort, { ...forwarded('dsh.example.com'), cookie }, 'GET'), 200)
   } finally {
     await gateway.stop()
     await new Promise<void>((resolve) => upstream.close(() => resolve()))

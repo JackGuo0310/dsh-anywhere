@@ -19,8 +19,8 @@ export function generateFrpcToml(config) {
         `transport.tls.enable = ${frp.tlsEnabled ? 'true' : 'false'}`,
         auth.trimEnd(), '', '[[proxies]]', 'name = "dsh-remote"',
         `type = ${tomlString(frp.transport)}`,
-        `localIP = ${tomlString(config.target.host)}`,
-        `localPort = ${config.target.port}`,
+        `localIP = ${tomlString(config.gatewayTarget.host)}`,
+        `localPort = ${config.gatewayTarget.port}`,
     ];
     if (frp.transport === 'http' || frp.transport === 'https')
         lines.push(`customDomains = [${tomlString(frp.customDomain)}]`);

@@ -120,7 +120,7 @@ let RemoteAccessService = (() => {
                 await gateway.start();
                 this.gateway = gateway;
                 this.tunnel = await this.createTunnel();
-                if (this.tunnel && this.config.frp?.startWithDsh)
+                if (this.tunnel && (this.config.frp?.startWithDsh || this.config.customCommandEnabled))
                     await this.tunnel.start();
             }
             catch (error) {
@@ -152,6 +152,7 @@ let RemoteAccessService = (() => {
             return {
                 configured: redactConfig(this.config),
                 running: !!this.gateway,
+                bound: this.gateway?.boundAuthorities() ?? [],
                 administratorConfigured: !!passwordHash,
                 tunnel: this.tunnel ? { id: this.tunnel.id, ...this.tunnel.status() } : undefined,
             };
@@ -247,7 +248,7 @@ let RemoteAccessService = (() => {
                     throw new Error('FRP token credential could not be resolved.');
                 if (this.config.frp.transport === 'stcp' && !stcpSecret)
                     throw new Error('STCP secret credential could not be resolved.');
-                return new FrpTunnelProvider({ target: this.config.target, frp: this.config.frp, token, stcpSecret });
+                return new FrpTunnelProvider({ gatewayTarget: { host: '127.0.0.1', port: this.config.listenPort }, frp: this.config.frp, token, stcpSecret });
             }
             if (this.config.customCommandEnabled && this.config.customCommand) {
                 return new CustomCommandTunnelProvider(this.config.customCommand.command, this.config.customCommand.args, true);

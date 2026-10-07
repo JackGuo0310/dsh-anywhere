@@ -3,9 +3,14 @@ import { SessionStore } from './session-store.js';
 export interface AuthOptions {
     passwordHash?: string;
     sessionTtlMinutes: number;
-    secureCookie: boolean;
     trustedProxies: string[];
 }
+/**
+ * Every enabled access mode is its own entry with its own sessions, so a session taken
+ * from one entry cannot authenticate another. Cookies ignore the port, so the loopback
+ * aliases (`localhost` and `127.0.0.1`) are folded together.
+ */
+export declare function normalizeAuthority(authority: string): string;
 export declare class AuthService {
     private readonly options;
     private passwordHash;
@@ -16,6 +21,8 @@ export declare class AuthService {
     get configured(): boolean;
     bootstrap(password: string): Promise<void>;
     changePassword(currentPassword: string, nextPassword: string): Promise<string>;
+    /** The entry a request arrived on, or undefined when its Host is not one of them. */
+    entryAuthority(req: IncomingMessage): string | undefined;
     login(username: string, password: string, req: IncomingMessage): Promise<{
         ok: boolean;
         retryAfterSeconds?: number;
@@ -29,9 +36,9 @@ export declare class AuthService {
         csrfToken: string;
     } | undefined;
     requireCsrf(req: IncomingMessage): boolean;
-    setSessionCookie(res: ServerResponse, sessionId: string): void;
-    clearSessionCookie(res: ServerResponse): void;
-    logout(req: IncomingMessage, res: ServerResponse): void;
+    setSessionCookie(res: ServerResponse, sessionId: string, secure: boolean): void;
+    clearSessionCookie(res: ServerResponse, secure: boolean): void;
+    logout(req: IncomingMessage, res: ServerResponse, secure: boolean): void;
     revokeAll(): void;
     passwordRecord(): string | undefined;
 }

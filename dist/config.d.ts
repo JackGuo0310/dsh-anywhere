@@ -1,7 +1,20 @@
 import { z } from 'zod';
 export declare const CONFIG_VERSION: 1;
-export type AccessMode = 'direct' | 'tunnel';
 export type TunnelKind = 'frp' | 'custom-command';
+/** Independent local listeners. They share one port number on different addresses. */
+export declare const listenerSchema: z.ZodObject<{
+    local: z.ZodDefault<z.ZodBoolean>;
+    lan: z.ZodDefault<z.ZodBoolean>;
+    tailscale: z.ZodDefault<z.ZodBoolean>;
+}, "strict", z.ZodTypeAny, {
+    local: boolean;
+    lan: boolean;
+    tailscale: boolean;
+}, {
+    local?: boolean | undefined;
+    lan?: boolean | undefined;
+    tailscale?: boolean | undefined;
+}>;
 export declare const frpConfigSchema: z.ZodObject<{
     executablePath: z.ZodOptional<z.ZodString>;
     serverAddress: z.ZodOptional<z.ZodString>;
@@ -39,9 +52,21 @@ export declare const frpConfigSchema: z.ZodObject<{
 export declare const configSchema: z.ZodObject<{
     version: z.ZodDefault<z.ZodLiteral<1>>;
     enabled: z.ZodDefault<z.ZodBoolean>;
-    listenHost: z.ZodDefault<z.ZodEffects<z.ZodString, string, string>>;
     listenPort: z.ZodDefault<z.ZodNumber>;
-    mode: z.ZodDefault<z.ZodEnum<["direct", "tunnel"]>>;
+    listeners: z.ZodDefault<z.ZodObject<{
+        local: z.ZodDefault<z.ZodBoolean>;
+        lan: z.ZodDefault<z.ZodBoolean>;
+        tailscale: z.ZodDefault<z.ZodBoolean>;
+    }, "strict", z.ZodTypeAny, {
+        local: boolean;
+        lan: boolean;
+        tailscale: boolean;
+    }, {
+        local?: boolean | undefined;
+        lan?: boolean | undefined;
+        tailscale?: boolean | undefined;
+    }>>;
+    tunnelEnabled: z.ZodDefault<z.ZodBoolean>;
     target: z.ZodDefault<z.ZodObject<{
         host: z.ZodDefault<z.ZodEffects<z.ZodString, string, string>>;
         port: z.ZodDefault<z.ZodNumber>;
@@ -111,13 +136,17 @@ export declare const configSchema: z.ZodObject<{
     sessionTtlMinutes: number;
     maxRequestBodyBytes: number;
     enabled: boolean;
-    mode: "direct" | "tunnel";
-    listenHost: string;
+    tunnelEnabled: boolean;
     listenPort: number;
     target: {
         host: string;
         port: number;
         protocol: "http" | "https";
+    };
+    listeners: {
+        local: boolean;
+        lan: boolean;
+        tailscale: boolean;
     };
     customCommandEnabled: boolean;
     version: 1;
@@ -151,8 +180,7 @@ export declare const configSchema: z.ZodObject<{
         args: string[];
     } | undefined;
     enabled?: boolean | undefined;
-    mode?: "direct" | "tunnel" | undefined;
-    listenHost?: string | undefined;
+    tunnelEnabled?: boolean | undefined;
     listenPort?: number | undefined;
     frp?: {
         executablePath?: string | undefined;
@@ -171,14 +199,25 @@ export declare const configSchema: z.ZodObject<{
         port?: number | undefined;
         protocol?: "http" | "https" | undefined;
     } | undefined;
+    listeners?: {
+        local?: boolean | undefined;
+        lan?: boolean | undefined;
+        tailscale?: boolean | undefined;
+    } | undefined;
     customCommandEnabled?: boolean | undefined;
     version?: 1 | undefined;
     adminConfigured?: boolean | undefined;
 }>;
 export type RemoteAccessConfig = z.infer<typeof configSchema>;
 export declare function isLoopbackHost(host: string): boolean;
-/** Wildcard listeners accept any local address, so the Host check cannot compare a literal. */
-export declare function isWildcardListenHost(host: string): boolean;
+export declare function hasDirectListener(listeners: RemoteAccessConfig['listeners']): boolean;
+/** Tailscale hands out addresses from the 100.64.0.0/10 carrier-grade NAT range. */
+export declare function isTailscaleAddress(address: string): boolean;
+/**
+ * Addresses the gateway binds for the enabled modes. Every mode shares one port, so the
+ * firewall only ever needs a single port number open.
+ */
+export declare function resolveBindAddresses(config: RemoteAccessConfig, addresses?: import("./network/addresses.js").NetworkAddress[]): string[];
 export declare function assertSafeConfig(value: unknown): RemoteAccessConfig;
 export declare function migrateConfig(value: unknown): RemoteAccessConfig;
 export declare function validateFrpcPath(path: string): void;
