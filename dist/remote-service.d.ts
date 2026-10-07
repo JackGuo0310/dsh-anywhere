@@ -16,6 +16,8 @@ export declare class RemoteAccessService extends TypertRemoteService {
     private tunnel;
     constructor(ctx: Context, config: RemoteAccessConfig);
     start(): Promise<void>;
+    /** The plugin was disposed: stop managed children now, but let a remount re-adopt the gateway. */
+    release(): void;
     stop(): Promise<void>;
     status(): Promise<unknown>;
     saveConfig(request: FullConfigRequest): Promise<unknown>;

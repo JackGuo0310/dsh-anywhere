@@ -384,3 +384,43 @@ test('a session from the public entry cannot authenticate the direct entry', asy
     await new Promise<void>((resolve) => upstream.close(() => resolve()))
   }
 })
+
+test('reconfiguring keeps live sockets and sessions, and only rebinds what changed', async () => {
+  const upstream = createServer()
+  const websocket = new WebSocketServer({ server: upstream })
+  websocket.on('connection', (socket) => socket.on('message', (message) => socket.send(`echo:${message}`)))
+  const upstreamPort = await listen(upstream)
+  const probe = createServer()
+  const gatewayPort = await listen(probe)
+  await new Promise<void>((resolve) => probe.close(() => resolve()))
+  const passwordHash = await hashPassword('correct horse battery staple')
+  const gateway = new RemoteGateway(config(upstreamPort, gatewayPort), passwordHash)
+  await gateway.start()
+  const base = `http://127.0.0.1:${gatewayPort}`
+  const echo = (socket: WebSocket, text: string) => new Promise<string>((resolve, reject) => { socket.once('message', (message) => resolve(message.toString())); socket.once('error', reject); socket.send(text) })
+  try {
+    const { cookie } = await login(base)
+    const socket = await openSocket(`ws://127.0.0.1:${gatewayPort}/socket`, { cookie, origin: base })
+    assert.equal(await echo(socket, 'before'), 'echo:before')
+
+    // Saving settings must not disturb a running entry: same listeners, same session, same socket.
+    await gateway.reconfigure({ ...config(upstreamPort, gatewayPort), sessionTtlMinutes: 30 }, passwordHash)
+    assert.deepEqual(gateway.listenAddresses(), ['127.0.0.1'])
+    assert.equal(socket.readyState, WebSocket.OPEN)
+    assert.equal(await echo(socket, 'after'), 'echo:after')
+    assert.equal((await fetch(`${base}/_dsh_remote/session`, { headers: { cookie } })).status, 200)
+
+    // Changing the port releases the old listener and opens the new one.
+    const nextProbe = createServer()
+    const nextPort = await listen(nextProbe)
+    await new Promise<void>((resolve) => nextProbe.close(() => resolve()))
+    await gateway.reconfigure({ ...config(upstreamPort, nextPort), sessionTtlMinutes: 30 }, passwordHash)
+    assert.deepEqual(gateway.listenAddresses(), ['127.0.0.1'])
+    assert.equal((await fetch(`http://127.0.0.1:${nextPort}/_dsh_remote/health`)).status, 200)
+    await assert.rejects(() => fetch(`${base}/_dsh_remote/health`))
+    socket.close()
+  } finally {
+    await gateway.stop()
+    await new Promise<void>((resolve) => upstream.close(() => resolve()))
+  }
+})

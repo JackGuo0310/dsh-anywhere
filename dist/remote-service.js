@@ -36,7 +36,7 @@ import { networkInterfaces } from 'node:os';
 import { assertSafeConfig } from './config.js';
 import { FrpTunnelProvider } from './tunnel/frp.js';
 import { CustomCommandTunnelProvider } from './tunnel/custom-command.js';
-import { RemoteGateway } from './gateway/remote-gateway.js';
+import { reconcileGateway, releaseGateway, shutdownGateway } from './gateway/host.js';
 import { detectTailscale } from './network/tailscale.js';
 import { hashPassword } from './security/password.js';
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol';
@@ -109,16 +109,14 @@ let RemoteAccessService = (() => {
             this.config = config;
         }
         async start() {
-            if (this.gateway)
-                throw new Error('Remote gateway is already running.');
             const passwordHash = await this.loadPasswordHash();
             const connection = this.ctx.get('connection');
             if (!connection)
                 throw new Error('DSH Connection service is required to authenticate upstream browser requests.');
-            const gateway = new RemoteGateway(this.config, passwordHash, () => connection.authenticatedUrl(`${this.config.target.protocol}://${this.config.target.host}:${this.config.target.port}/`));
+            const authenticatedUrl = () => connection.authenticatedUrl(`${this.config.target.protocol}://${this.config.target.host}:${this.config.target.port}/`);
+            // The gateway outlives a configuration remount; only the addresses that changed rebind.
+            this.gateway = await reconcileGateway(this.config, passwordHash, authenticatedUrl);
             try {
-                await gateway.start();
-                this.gateway = gateway;
                 this.tunnel = await this.createTunnel();
                 if (this.tunnel && (this.config.frp?.startWithDsh || this.config.customCommandEnabled))
                     await this.tunnel.start();
@@ -128,23 +126,26 @@ let RemoteAccessService = (() => {
                     await this.stop();
                 }
                 catch { /* Preserve the startup failure. */ }
-                try {
-                    await gateway.stop();
-                }
-                catch { /* Preserve the startup failure. */ }
                 throw error;
             }
+        }
+        /** The plugin was disposed: stop managed children now, but let a remount re-adopt the gateway. */
+        release() {
+            const tunnel = this.tunnel;
+            this.tunnel = undefined;
+            this.gateway = undefined;
+            void tunnel?.stop();
+            releaseGateway();
         }
         async stop() {
             const tunnel = this.tunnel;
             this.tunnel = undefined;
-            const gateway = this.gateway;
             this.gateway = undefined;
             try {
                 await tunnel?.stop();
             }
             finally {
-                await gateway?.stop();
+                await shutdownGateway();
             }
         }
         async status() {

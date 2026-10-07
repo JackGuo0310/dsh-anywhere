@@ -4,6 +4,7 @@ import { Context } from '@deepseek-ai/cordis'
 import { createServer } from 'node:http'
 import { once } from 'node:events'
 import { RemoteAccessService } from '../remote-service.js'
+import { hostedGateway, shutdownGateway } from '../gateway/host.js'
 import { assertSafeConfig } from '../config.js'
 import { verifyPassword } from '../security/password.js'
 
@@ -17,28 +18,55 @@ async function freePort(): Promise<number> {
   return address.port
 }
 
-test('gateway lifecycle survives a bind failure and releases the listener on stop', async () => {
+test('a bind failure leaves no gateway behind and the port is reusable', async () => {
   const port = await freePort()
   const config = assertSafeConfig({ enabled: true, listenPort: port, adminPasswordSecretRef: 'DSH_REMOTE_ADMIN_HASH' })
-  const ownerCtx = new Context()
-  const contenderCtx = new Context()
-  for (const ctx of [ownerCtx, contenderCtx]) {
-    ;(ctx as unknown as { get(name: string): unknown }).get = (name: string) => name === 'credentials' ? { resolve: async () => undefined } : name === 'connection' ? { authenticatedUrl: (url: string) => url + '?token=test' } : undefined
-  }
-  const owner = new RemoteAccessService(ownerCtx, config)
-  const contender = new RemoteAccessService(contenderCtx, config)
-  await owner.start()
+  const blocker = createServer()
+  blocker.listen(port, '127.0.0.1')
+  await once(blocker, 'listening')
+  const ctx = new Context()
+  ;(ctx as unknown as { get(name: string): unknown }).get = (name: string) => name === 'credentials' ? { resolve: async () => undefined } : name === 'connection' ? { authenticatedUrl: (url: string) => url + '?token=test' } : undefined
+  const service = new RemoteAccessService(ctx, config)
   try {
-    await assert.rejects(() => contender.start(), /EADDRINUSE/)
-    assert.equal((await contender.status() as { running: boolean }).running, false)
+    await assert.rejects(() => service.start(), /EADDRINUSE/)
+    assert.equal(hostedGateway(), undefined, 'a failed start must not leave a hosted gateway')
+    assert.equal((await service.status() as { running: boolean }).running, false)
   } finally {
-    await contender.stop()
-    await owner.stop()
+    await new Promise<void>((resolve) => blocker.close(() => resolve()))
   }
-  await contender.start()
-  assert.equal((await contender.status() as { running: boolean }).running, true)
-  await contender.stop()
-  await contender.stop()
+  await service.start()
+  assert.equal((await service.status() as { running: boolean }).running, true)
+  await service.stop()
+  assert.equal(hostedGateway(), undefined)
+  await service.stop()
+})
+
+test('a configuration remount re-adopts the running gateway instead of restarting it', async () => {
+  const port = await freePort()
+  const context = () => {
+    const ctx = new Context()
+    ;(ctx as unknown as { get(name: string): unknown }).get = (name: string) => name === 'credentials'
+      ? { resolve: async () => undefined }
+      : name === 'connection' ? { authenticatedUrl: (url: string) => `${url}?token=test` } : undefined
+    return ctx
+  }
+  const config = assertSafeConfig({ enabled: true, listenPort: port, adminPasswordSecretRef: 'DSH_REMOTE_ADMIN_HASH' })
+  const first = new RemoteAccessService(context(), config)
+  await first.start()
+  const running = hostedGateway()
+  assert.ok(running)
+  try {
+    // What the Loader does on save: dispose the old plugin instance, then apply the new config.
+    first.release()
+    const second = new RemoteAccessService(context(), assertSafeConfig({ enabled: true, listenPort: port, sessionTtlMinutes: 30, adminPasswordSecretRef: 'DSH_REMOTE_ADMIN_HASH' }))
+    await second.start()
+    assert.equal(hostedGateway(), running, 'the running gateway must survive a configuration save')
+    assert.deepEqual(running.listenAddresses(), ['127.0.0.1'])
+    await second.stop()
+  } finally {
+    await shutdownGateway()
+  }
+  assert.equal(hostedGateway(), undefined)
 })
 
 test('initial administrator password can be stored while gateway is stopped', async () => {

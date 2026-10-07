@@ -35,11 +35,19 @@ function authorityAliases(address, port) {
     const authority = `${address.includes(':') ? `[${address}]` : address}:${port}`.toLowerCase();
     return address === '127.0.0.1' ? [authority, `localhost:${port}`] : [authority];
 }
+/** Close one listener and only the connections that belong to it. */
+function closeServer(server) {
+    server.closeAllConnections();
+    return new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+}
 export class RemoteGateway {
     config;
     authenticatedUrl;
-    servers = [];
+    /** One server per bound address; a config change only touches the addresses that changed. */
+    servers = new Map();
     sockets = new Set();
+    /** Sockets per bound address, so releasing one listener never touches another's traffic. */
+    addressSockets = new Map();
     auth;
     allowedAuthorities = [];
     boundAddresses = [];
@@ -58,8 +66,39 @@ export class RemoteGateway {
         });
     }
     async start() {
-        if (this.servers.length)
+        if (this.servers.size)
             return;
+        try {
+            await this.syncListeners();
+        }
+        catch (error) {
+            await this.stop();
+            throw error;
+        }
+    }
+    /**
+     * Adopt a new configuration without dropping unrelated connections. Existing listeners and
+     * their live sockets stay up; only added addresses bind and only removed ones close. Sessions
+     * survive, so saving settings does not log every browser out.
+     */
+    async reconfigure(config, passwordHash, authenticatedUrl) {
+        const previous = this.config;
+        this.config = config;
+        this.authenticatedUrl = authenticatedUrl ?? this.authenticatedUrl;
+        this.auth.updateOptions({ sessionTtlMinutes: config.sessionTtlMinutes, trustedProxies: config.trustedProxyCidrs });
+        // A changed administrator password invalidates every session; anything else preserves them.
+        if (passwordHash !== undefined && passwordHash !== this.auth.passwordRecord()) {
+            this.auth.setPasswordHash(passwordHash);
+            this.revokeAllSessions();
+        }
+        // A new port means every listener must move, so release them before rebinding.
+        if (previous.listenPort !== config.listenPort)
+            for (const address of [...this.servers.keys()])
+                await this.release(address);
+        await this.syncListeners();
+    }
+    /** Bind newly enabled addresses and release disabled ones, leaving everything else untouched. */
+    async syncListeners() {
         const addresses = resolveBindAddresses(this.config);
         if (!addresses.length)
             throw new Error('No listener address is available for the enabled access modes.');
@@ -67,15 +106,26 @@ export class RemoteGateway {
         // Every enabled mode shares one port, so each enabled address is its own socket and
         // the firewall still only ever needs a single port number.
         this.allowedAuthorities = [...new Set([...addresses.flatMap((address) => authorityAliases(address, this.config.listenPort)), this.publicAuthority].filter(Boolean))];
-        this.boundAddresses = addresses;
-        try {
-            for (const address of addresses)
+        for (const address of addresses)
+            if (!this.servers.has(address))
                 await this.listen(address);
-        }
-        catch (error) {
-            await this.stop();
-            throw error;
-        }
+        for (const address of [...this.servers.keys()])
+            if (!addresses.includes(address))
+                await this.release(address);
+        this.boundAddresses = addresses;
+    }
+    async release(address) {
+        const server = this.servers.get(address);
+        if (!server)
+            return;
+        this.servers.delete(address);
+        // server.close() waits for every connection, and upgraded WebSocket sockets are excluded
+        // from closeAllConnections(), so destroy this address's sockets explicitly first.
+        const owned = this.addressSockets.get(address);
+        this.addressSockets.delete(address);
+        for (const socket of owned ?? [])
+            socket.destroy();
+        await closeServer(server);
     }
     listen(address) {
         const server = createServer((req, res) => this.handle(req, res));
@@ -86,10 +136,13 @@ export class RemoteGateway {
             const onError = (error) => { server.removeListener('listening', onListening); server.close(); reject(error); };
             const onListening = () => {
                 server.off('error', onError);
-                this.servers.push(server);
+                this.servers.set(address, server);
+                const owned = new Set();
+                this.addressSockets.set(address, owned);
                 server.on('connection', (socket) => {
                     this.sockets.add(socket);
-                    socket.once('close', () => this.sockets.delete(socket));
+                    owned.add(socket);
+                    socket.once('close', () => { this.sockets.delete(socket); owned.delete(socket); });
                 });
                 resolve();
             };
@@ -99,7 +152,9 @@ export class RemoteGateway {
         });
     }
     async stop() {
-        const servers = this.servers.splice(0, this.servers.length);
+        const servers = [...this.servers.values()];
+        this.servers.clear();
+        this.addressSockets.clear();
         this.boundAddresses = [];
         this.authEpoch++;
         this.upstreamSessions.clear();
@@ -110,9 +165,7 @@ export class RemoteGateway {
             return;
         for (const socket of this.sockets)
             socket.destroy();
-        for (const server of servers)
-            server.closeAllConnections();
-        await Promise.all(servers.map((server) => new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()))));
+        await Promise.all(servers.map((server) => closeServer(server)));
     }
     async bootstrapAdmin(password) {
         await this.auth.bootstrap(password);

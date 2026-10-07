@@ -25,6 +25,8 @@ DSH Web 的 `dsh-host-webserver` 是进程内 HTTP/升级路由注册器；它�
                   └─ 127.0.0.1:listenPort（网关自身，绝不是 DSH 原始端口）
 ```
 
+保存设置会让 Loader 重新挂载本插件，因此网关实例由 `gateway/host.ts` 持有并**跨重挂载复用**：新配置交给同一个实例做增量调整——只绑定新增地址、只释放被关闭的地址，已有连接与全部会话保持不变。否则每次保存都会拆掉所有监听器并清空会话，表现为"取消一个入口，另一个也掉线"。只有管理员密码变更才会撤销会话。释放某个地址时会先销毁该地址自己的 socket（含已 upgrade 的 WebSocket，`closeAllConnections()` 不覆盖它们），再关闭监听。
+
 禁用某个入口只是关闭它对应的 socket：其余入口不受影响，且不需要改动端口号。公网隧道的转发目标是网关本机监听，因此本机入口必须保持启用（配置校验会拒绝关闭它），否则隧道会绕过认证直接暴露上游 DSH。
 
 配置携带 secret **引用**而非值；FRP token 等通过 DSH credentials 服务按操作读取。密码哈希、会话记录与上游认证 Cookie 是本机受限权限运行时数据，不进入普通设置、日志或诊断输出。插件通过 Connection 的 `authenticatedUrl()` 在网关→loopback DSH 的私下链路兑换 Cookie；代理请求只转发与网关会话关联的上游 Cookie，绝不向浏览器转发 DSH 的 `Set-Cookie` 或启动令牌。保存配置经 configEditor 持久化并等待 Loader 重挂载；故禁用、修改端口、目标与密码策略不要求重启进程。

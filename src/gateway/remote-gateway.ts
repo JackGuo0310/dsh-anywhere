@@ -40,9 +40,18 @@ function authorityAliases(address: string, port: number): string[] {
   return address === '127.0.0.1' ? [authority, `localhost:${port}`] : [authority]
 }
 
+/** Close one listener and only the connections that belong to it. */
+function closeServer(server: Server): Promise<void> {
+  server.closeAllConnections()
+  return new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()))
+}
+
 export class RemoteGateway {
-  private readonly servers: Server[] = []
+  /** One server per bound address; a config change only touches the addresses that changed. */
+  private readonly servers = new Map<string, Server>()
   private readonly sockets = new Set<import('node:net').Socket>()
+  /** Sockets per bound address, so releasing one listener never touches another's traffic. */
+  private readonly addressSockets = new Map<string, Set<import('node:net').Socket>>()
   private readonly auth: AuthService
   private allowedAuthorities: string[] = []
   private boundAddresses: string[] = []
@@ -52,7 +61,7 @@ export class RemoteGateway {
   private readonly sessionGenerations = new Map<string, number>()
   private authEpoch = 0
 
-  constructor(private readonly config: RemoteAccessConfig, passwordHash?: string, private readonly authenticatedUrl?: () => string) {
+  constructor(private config: RemoteAccessConfig, passwordHash?: string, private authenticatedUrl?: () => string) {
     this.auth = new AuthService({
       passwordHash,
       sessionTtlMinutes: config.sessionTtlMinutes,
@@ -61,20 +70,58 @@ export class RemoteGateway {
   }
 
   async start(): Promise<void> {
-    if (this.servers.length) return
+    if (this.servers.size) return
+    try {
+      await this.syncListeners()
+    } catch (error) {
+      await this.stop()
+      throw error
+    }
+  }
+
+  /**
+   * Adopt a new configuration without dropping unrelated connections. Existing listeners and
+   * their live sockets stay up; only added addresses bind and only removed ones close. Sessions
+   * survive, so saving settings does not log every browser out.
+   */
+  async reconfigure(config: RemoteAccessConfig, passwordHash?: string, authenticatedUrl?: () => string): Promise<void> {
+    const previous = this.config
+    this.config = config
+    this.authenticatedUrl = authenticatedUrl ?? this.authenticatedUrl
+    this.auth.updateOptions({ sessionTtlMinutes: config.sessionTtlMinutes, trustedProxies: config.trustedProxyCidrs })
+    // A changed administrator password invalidates every session; anything else preserves them.
+    if (passwordHash !== undefined && passwordHash !== this.auth.passwordRecord()) {
+      this.auth.setPasswordHash(passwordHash)
+      this.revokeAllSessions()
+    }
+    // A new port means every listener must move, so release them before rebinding.
+    if (previous.listenPort !== config.listenPort) for (const address of [...this.servers.keys()]) await this.release(address)
+    await this.syncListeners()
+  }
+
+  /** Bind newly enabled addresses and release disabled ones, leaving everything else untouched. */
+  private async syncListeners(): Promise<void> {
     const addresses = resolveBindAddresses(this.config)
     if (!addresses.length) throw new Error('No listener address is available for the enabled access modes.')
     this.publicAuthority = this.config.tunnelEnabled && this.config.publicBaseUrl ? new URL(this.config.publicBaseUrl).host.toLowerCase() : undefined
     // Every enabled mode shares one port, so each enabled address is its own socket and
     // the firewall still only ever needs a single port number.
     this.allowedAuthorities = [...new Set([...addresses.flatMap((address) => authorityAliases(address, this.config.listenPort)), this.publicAuthority].filter(Boolean) as string[])]
+    for (const address of addresses) if (!this.servers.has(address)) await this.listen(address)
+    for (const address of [...this.servers.keys()]) if (!addresses.includes(address)) await this.release(address)
     this.boundAddresses = addresses
-    try {
-      for (const address of addresses) await this.listen(address)
-    } catch (error) {
-      await this.stop()
-      throw error
-    }
+  }
+
+  private async release(address: string): Promise<void> {
+    const server = this.servers.get(address)
+    if (!server) return
+    this.servers.delete(address)
+    // server.close() waits for every connection, and upgraded WebSocket sockets are excluded
+    // from closeAllConnections(), so destroy this address's sockets explicitly first.
+    const owned = this.addressSockets.get(address)
+    this.addressSockets.delete(address)
+    for (const socket of owned ?? []) socket.destroy()
+    await closeServer(server)
   }
 
   private listen(address: string): Promise<void> {
@@ -86,10 +133,13 @@ export class RemoteGateway {
       const onError = (error: Error) => { server.removeListener('listening', onListening); server.close(); reject(error) }
       const onListening = () => {
         server.off('error', onError)
-        this.servers.push(server)
+        this.servers.set(address, server)
+        const owned = new Set<import('node:net').Socket>()
+        this.addressSockets.set(address, owned)
         server.on('connection', (socket) => {
           this.sockets.add(socket)
-          socket.once('close', () => this.sockets.delete(socket))
+          owned.add(socket)
+          socket.once('close', () => { this.sockets.delete(socket); owned.delete(socket) })
         })
         resolve()
       }
@@ -100,7 +150,9 @@ export class RemoteGateway {
   }
 
   async stop(): Promise<void> {
-    const servers = this.servers.splice(0, this.servers.length)
+    const servers = [...this.servers.values()]
+    this.servers.clear()
+    this.addressSockets.clear()
     this.boundAddresses = []
     this.authEpoch++
     this.upstreamSessions.clear()
@@ -109,8 +161,7 @@ export class RemoteGateway {
     this.auth.revokeAll()
     if (!servers.length) return
     for (const socket of this.sockets) socket.destroy()
-    for (const server of servers) server.closeAllConnections()
-    await Promise.all(servers.map((server) => new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()))))
+    await Promise.all(servers.map((server) => closeServer(server)))
   }
 
   async bootstrapAdmin(password: string): Promise<string> {

@@ -3,7 +3,8 @@ import { assertSafeConfig, type RemoteAccessConfig } from './config.js'
 import { FrpTunnelProvider } from './tunnel/frp.js'
 import { CustomCommandTunnelProvider } from './tunnel/custom-command.js'
 import type { TunnelProvider } from './tunnel/types.js'
-import { RemoteGateway } from './gateway/remote-gateway.js'
+import { reconcileGateway, releaseGateway, shutdownGateway } from './gateway/host.js'
+import type { RemoteGateway } from './gateway/remote-gateway.js'
 import { detectTailscale } from './network/tailscale.js'
 import { hashPassword } from './security/password.js'
 import type { Context } from '@deepseek-ai/cordis'
@@ -62,29 +63,35 @@ export class RemoteAccessService extends TypertRemoteService {
   }
 
   async start(): Promise<void> {
-    if (this.gateway) throw new Error('Remote gateway is already running.')
     const passwordHash = await this.loadPasswordHash()
     const connection = this.ctx.get('connection') as ConnectionAuth | undefined
     if (!connection) throw new Error('DSH Connection service is required to authenticate upstream browser requests.')
-    const gateway = new RemoteGateway(this.config, passwordHash, () => connection.authenticatedUrl(`${this.config.target.protocol}://${this.config.target.host}:${this.config.target.port}/`))
+    const authenticatedUrl = () => connection.authenticatedUrl(`${this.config.target.protocol}://${this.config.target.host}:${this.config.target.port}/`)
+    // The gateway outlives a configuration remount; only the addresses that changed rebind.
+    this.gateway = await reconcileGateway(this.config, passwordHash, authenticatedUrl)
     try {
-      await gateway.start()
-      this.gateway = gateway
       this.tunnel = await this.createTunnel()
       if (this.tunnel && (this.config.frp?.startWithDsh || this.config.customCommandEnabled)) await this.tunnel.start()
     } catch (error) {
       try { await this.stop() } catch { /* Preserve the startup failure. */ }
-      try { await gateway.stop() } catch { /* Preserve the startup failure. */ }
       throw error
     }
+  }
+
+  /** The plugin was disposed: stop managed children now, but let a remount re-adopt the gateway. */
+  release(): void {
+    const tunnel = this.tunnel
+    this.tunnel = undefined
+    this.gateway = undefined
+    void tunnel?.stop()
+    releaseGateway()
   }
 
   async stop(): Promise<void> {
     const tunnel = this.tunnel
     this.tunnel = undefined
-    const gateway = this.gateway
     this.gateway = undefined
-    try { await tunnel?.stop() } finally { await gateway?.stop() }
+    try { await tunnel?.stop() } finally { await shutdownGateway() }
   }
 
   @Remote('status')

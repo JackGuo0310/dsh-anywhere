@@ -30,6 +30,14 @@ export class AuthService {
   constructor(private readonly options: AuthOptions) { this.passwordHash = options.passwordHash }
   get configured(): boolean { return !!this.passwordHash }
 
+  /** Session lifetime and trusted proxies can change without invalidating anyone. */
+  updateOptions(options: Partial<Pick<AuthOptions, 'sessionTtlMinutes' | 'trustedProxies'>>): void {
+    if (options.sessionTtlMinutes !== undefined) this.options.sessionTtlMinutes = options.sessionTtlMinutes
+    if (options.trustedProxies !== undefined) this.options.trustedProxies = options.trustedProxies
+  }
+
+  setPasswordHash(hash: string | undefined): void { this.passwordHash = hash }
+
   async bootstrap(password: string): Promise<void> {
     if (this.passwordHash) throw new Error('Administrator account is already configured.')
     this.passwordHash = await hashPassword(password)

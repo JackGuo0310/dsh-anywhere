@@ -19,6 +19,9 @@ export declare class AuthService {
     private readonly accountLimiter;
     constructor(options: AuthOptions);
     get configured(): boolean;
+    /** Session lifetime and trusted proxies can change without invalidating anyone. */
+    updateOptions(options: Partial<Pick<AuthOptions, 'sessionTtlMinutes' | 'trustedProxies'>>): void;
+    setPasswordHash(hash: string | undefined): void;
     bootstrap(password: string): Promise<void>;
     changePassword(currentPassword: string, nextPassword: string): Promise<string>;
     /** The entry a request arrived on, or undefined when its Host is not one of them. */

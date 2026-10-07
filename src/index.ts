@@ -1,5 +1,6 @@
 import type { Context } from '@deepseek-ai/cordis'
 import { assertSafeConfig, type RemoteAccessConfig } from './config.js'
+import { shutdownGateway } from './gateway/host.js'
 import { RemoteAccessService } from './remote-service.js'
 
 export { CONFIG_VERSION, assertSafeConfig, configSchema, migrateConfig } from './config.js'
@@ -13,6 +14,9 @@ export const inject = ['configEditor', 'credentials', 'typertGateway', 'connecti
 export async function apply(ctx: Context, rawConfig: RemoteAccessConfig): Promise<void> {
   const config = assertSafeConfig(rawConfig)
   const service = new RemoteAccessService(ctx, config)
-  ctx.effect(() => () => service.stop())
+  // Disposal releases rather than stops: a configuration save remounts this plugin, and the
+  // gateway must survive that so unrelated access modes keep their listeners and sessions.
+  ctx.effect(() => () => service.release())
   if (config.enabled) await service.start()
+  else await shutdownGateway()
 }

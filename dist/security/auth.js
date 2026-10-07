@@ -22,6 +22,14 @@ export class AuthService {
         this.passwordHash = options.passwordHash;
     }
     get configured() { return !!this.passwordHash; }
+    /** Session lifetime and trusted proxies can change without invalidating anyone. */
+    updateOptions(options) {
+        if (options.sessionTtlMinutes !== undefined)
+            this.options.sessionTtlMinutes = options.sessionTtlMinutes;
+        if (options.trustedProxies !== undefined)
+            this.options.trustedProxies = options.trustedProxies;
+    }
+    setPasswordHash(hash) { this.passwordHash = hash; }
     async bootstrap(password) {
         if (this.passwordHash)
             throw new Error('Administrator account is already configured.');
