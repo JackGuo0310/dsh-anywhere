@@ -12,6 +12,7 @@ dist/test/
 .env.*
 !.env.example
 .remote-access/
+.acl-report/
 *.pem
 *.key
 

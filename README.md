@@ -41,7 +41,7 @@
 
 ## 版本兼容性
 
-当前 `v0.2.6` 锁定 DeepSeek Harness `0.2.1-alpha.1` 运行时：
+当前 `v0.2.7` 锁定 DeepSeek Harness `0.2.1-alpha.1` 运行时：
 
 - `@deepseek-ai/cordis`：`~4.0.5-alpha.1`
 - `@deepseek-ai/dsh-credentials`：`0.2.1-alpha.1`
@@ -51,17 +51,17 @@
 
 ## 安装（Git tag）
 
-`v0.2.6` 尚未发布到 npm。可在目标机器使用 Git tag 安装：
+`v0.2.7` 尚未发布到 npm。可在目标机器使用 Git tag 安装：
 
 ```powershell
 # dsh 会将 bundle 安装到指定 profile；按你的实际 profile 名替换 web。
-dsh plugin --profile web add https://github.com/JackGuo0310/dsh-anywhere.git#v0.2.6
+dsh plugin --profile web add https://github.com/JackGuo0310/dsh-anywhere.git#v0.2.7
 ```
 
 也可先克隆该 tag 并从本地目录安装：
 
 ```powershell
-git clone --branch v0.2.6 --depth 1 https://github.com/JackGuo0310/dsh-anywhere.git
+git clone --branch v0.2.7 --depth 1 https://github.com/JackGuo0310/dsh-anywhere.git
 dsh plugin --profile web add .\dsh-anywhere
 ```
 
@@ -101,6 +101,7 @@ npm test
 - **Linux**：代码只依赖 Node 22 的跨平台模块；`spawn(..., { windowsHide: true })` 在 Linux 被 Node 忽略。尚未在真实 Linux host 上运行集成测试，发布前应执行同一命令并测试 `frpc` 生命周期。
 - 用户已在真实 `web` profile 中验证（`v0.1.23` → `v0.2.6`）：本机 `127.0.0.1`、局域网 `192.168.x.x` 与 Tailscale `100.x.y.z` 三个入口可同时访问同一端口，各自独立启停；登录流程、favicon 静默、manifest 静默、保存配置热应用、入口隔离会话实测通过。
 - FRP 公网隧道已端到端验证（`v0.2.6`）：Cloudflare → nginx:443 → frps:80 → frpc → 网关 `127.0.0.1:4173` 全链路打通，`https://<子域名>` 显示登录页并可进入 DSH。取消隧道开关后 `frpc` 进程退出、`frps` 返回其默认 404（请求未到达网关），这与开关失效时的网关 421 明显不同；启动、重启、撤销所有会话三个按钮均实测有效。`v0.1.x` 的 `listenHost`/`mode` 配置已自动迁移为新的 `listeners`/`tunnelEnabled`。
+- `v0.2.7` 修复启用公网隧道后 LAN/Tailscale 入口登录失败：Origin 校验曾把来源钉死到 `publicBaseUrl`，导致非公网入口的同源写请求被拒。现改为 Origin 只需匹配请求实际到达且已绑定的入口，入口之间仍由 Host 白名单与按 authority 分键的会话隔离。该场景已由集成测试覆盖，但尚未在真实 profile 上复测。
 
 ## 已知限制
 

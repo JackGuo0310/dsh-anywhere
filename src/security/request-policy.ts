@@ -81,9 +81,12 @@ export function websocketOriginAllowed(req: IncomingMessage, allowedAuthorities:
     const parsed = new URL(origin)
     const authority = effectiveAuthority(req, trustedProxies)
     if (!authority) return false
-    if (publicBaseUrl) return parsed.origin === new URL(publicBaseUrl).origin && parsed.origin === origin && authority === parsed.host.toLowerCase() && allowedAuthorities.includes(authority)
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false
     if (parsed.origin !== origin || parsed.host.toLowerCase() !== authority) return false
+    // The origin only has to match the entry it arrived on, and that entry must be one the
+    // gateway actually bound. Cross-entry isolation already comes from sessions being keyed
+    // to the entry authority, so the public tunnel never invalidates the LAN/Tailscale
+    // entries just because it is enabled.
     return allowedAuthorities.includes(authority)
   } catch { return false }
 }
@@ -102,8 +105,7 @@ export function proxyWriteAllowed(req: IncomingMessage, allowedAuthorities: read
   if (req.headers.origin !== undefined) return websocketOriginAllowed(req, allowedAuthorities, trustedProxies, publicBaseUrl)
   if (fetchSite === 'same-origin') {
     const authority = effectiveAuthority(req, trustedProxies)
-    if (!authority || !allowedAuthorities.includes(authority)) return false
-    return !publicBaseUrl || authority === new URL(publicBaseUrl).host.toLowerCase()
+    return !!authority && allowedAuthorities.includes(authority)
   }
   const referer = req.headers.referer
   if (typeof referer !== 'string') return false

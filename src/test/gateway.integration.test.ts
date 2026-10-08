@@ -384,6 +384,15 @@ test('a session from the public entry cannot authenticate the direct entry', asy
     // The same cookie must not speak for the loopback entry.
     assert.equal((await fetch(`http://127.0.0.1:${gatewayPort}/_dsh_remote/session`, { headers: { cookie, ...forwarded(`127.0.0.1:${gatewayPort}`) } })).status, 401)
     assert.equal(await requestWithHost(gatewayPort, { ...forwarded('dsh.example.com'), cookie }, 'GET'), 200)
+    // Enabling the tunnel must not lock the direct entry out of its own origin check.
+    const directLogin = await fetch(`http://127.0.0.1:${gatewayPort}/_dsh_remote/login`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', origin: `http://127.0.0.1:${gatewayPort}` },
+      body: JSON.stringify({ username: 'admin', password: 'correct horse battery staple' }),
+    })
+    assert.equal(directLogin.status, 200)
+    const directCookie = directLogin.headers.get('set-cookie')!.split(';')[0]
+    assert.equal((await fetch(`http://127.0.0.1:${gatewayPort}/app`, { method: 'POST', headers: { cookie: directCookie, 'sec-fetch-site': 'same-origin' } })).status, 200)
   } finally {
     await gateway.stop()
     await new Promise<void>((resolve) => upstream.close(() => resolve()))
