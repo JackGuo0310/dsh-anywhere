@@ -223,10 +223,12 @@
     }
   };
 
+  // src/version.generated.ts
+  var pluginVersion = "0.2.8";
+
   // src/client-module.ts
   var sectionId = "dsh-remote-access";
   var remoteNamespace = "dshRemoteAccess";
-  var pluginVersion = "0.2.6";
   var defaults = {
     enabled: false,
     local: true,

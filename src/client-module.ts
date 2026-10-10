@@ -1,9 +1,9 @@
 import { dictionaries, localeNamespace } from './locale.generated.js'
+import { pluginVersion } from './version.generated.js'
 
 const packageId = '@dsh-community/dsh-remote-access'
 const sectionId = 'dsh-remote-access'
 const remoteNamespace = 'dshRemoteAccess'
-const pluginVersion = '0.2.6'
 
 type HostCall = (method: string, args?: unknown) => Promise<unknown>
 type Translator = (key: string) => string
